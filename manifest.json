@@ -6,7 +6,7 @@
   "author": "hogashi",
   "content_scripts": [
     {
-      "matches": ["http://*/*", "https://*/*"],
+      "matches": ["<all_urls>"],
       "js": ["index.js"]
     }
   ]
