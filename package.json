@@ -5,5 +5,8 @@
   "main": "src/index.js",
   "repository": "ssh://git@github.com/hogashi/chrome-usercss-hogashi",
   "author": "hogextend@gmail.com",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^4.1.3"
+  }
 }
