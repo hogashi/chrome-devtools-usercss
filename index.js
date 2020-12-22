@@ -1,8 +1,3 @@
-// get style for current site from local storage
-
-const styleString = 'body { border: 1px solid magenta; }';
-document.querySelector('body').insertAdjacentHTML('beforeend', `<style>${styleString}</style>`);
-
 const message = {
   method: 'getStyle',
   hostname: location.hostname,
