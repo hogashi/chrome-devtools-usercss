@@ -1,2 +1,2 @@
-# hogashi-chrome-ext-user-css
-chrome extension which inserts user css
+# chrome-usercss-hogashi
+chrome extension which inserts usercss
