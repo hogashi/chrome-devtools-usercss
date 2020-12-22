@@ -1,7 +1,6 @@
 import { GetStyleMessage, SendGetStyleResponse } from './background';
 
 const message: GetStyleMessage = {
-  method: 'getStyle',
   hostname: location.hostname,
 };
 
