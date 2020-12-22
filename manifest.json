@@ -1,0 +1,13 @@
+{
+  "manifest_version": 2,
+  "name": "hogashi-user-css",
+  "version": "0.0.1",
+  "description": "user css for each site",
+  "author": "hogashi",
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["index.js"]
+    }
+  ]
+}
