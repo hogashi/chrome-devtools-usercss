@@ -1,31 +1,57 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-var setStyle = function (message, sendResponse) {
+/******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
+/******/ 	var __webpack_modules__ = ({
+
+/***/ 136:
+/***/ ((__unused_webpack_module, exports) => {
+
+var __webpack_unused_export__;
+
+__webpack_unused_export__ = ({ value: true });
+var getStyle = function (message, _, sendResponse) {
+    console.log(message);
     var hostname = message.hostname;
-    localStorage[hostname] = message.style;
-    var hostnames = JSON.parse(localStorage['hostnames'] || {});
-    hostnames[hostname] = true;
-    localStorage['hostnames'] = JSON.stringify(hostnames);
-    sendResponse({ success: true });
-};
-var getStyle = function (message, sendResponse) {
-    var hostname = message.hostname;
-    if (!hostname) {
+    if (hostname.length === 0) {
         sendResponse({ style: null });
         return;
     }
-    var style = localStorage[hostname] || null;
+    var style = localStorage.getItem(hostname);
     sendResponse({ style: style });
 };
-var messageListener = function (message, _, sendResponse) {
-    console.log(message);
-    switch (message.method) {
-        case 'getStyle':
-            getStyle(message, sendResponse);
-            break;
-        case 'setStyle':
-            setStyle(message, sendResponse);
-            break;
-    }
-};
-window.chrome.runtime.onMessage.addListener(messageListener);
+window.chrome.runtime.onMessage.addListener(getStyle);
+
+
+/***/ })
+
+/******/ 	});
+/************************************************************************/
+/******/ 	// The module cache
+/******/ 	var __webpack_module_cache__ = {};
+/******/ 	
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/ 		// Check if module is in cache
+/******/ 		if(__webpack_module_cache__[moduleId]) {
+/******/ 			return __webpack_module_cache__[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = __webpack_module_cache__[moduleId] = {
+/******/ 			// no module.id needed
+/******/ 			// no module.loaded needed
+/******/ 			exports: {}
+/******/ 		};
+/******/ 	
+/******/ 		// Execute the module function
+/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
+/******/ 	
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/ 	
+/************************************************************************/
+/******/ 	// startup
+/******/ 	// Load entry module
+/******/ 	__webpack_require__(136);
+/******/ 	// This entry module used 'exports' so it can't be inlined
+/******/ })()
+;

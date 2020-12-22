@@ -1,4 +1,8 @@
-"use strict";
+/******/ (() => { // webpackBootstrap
+/******/ 	"use strict";
+
+var HOSTNAME_SET = 'hostnameSet';
+var LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 var hostnameInput = document.querySelector('#hostname-input');
 var hostnameSelector = document.querySelector('#hostname-selector');
 var defaultHostnameOption = document.querySelector('#default-option');
@@ -7,17 +11,29 @@ var textarea = document.querySelector('#textarea');
 var saveButton = document.querySelector('#save-button');
 var loadButtonTimer;
 var saveButtonTimer;
-var hostnames = JSON.parse(localStorage['hostnames'] || '{}');
-Object.keys(hostnames).forEach(function (hostname) {
+var getHostnameSet = function () { return JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}'); };
+var addHostname = function (hostname, set) {
+    set[hostname] = true;
+    localStorage.setItem(HOSTNAME_SET, JSON.stringify(set));
+};
+var getStyleByHostname = function (hostname) { return localStorage.getItem(hostname) || ''; };
+var addOrUpdateStyleAndHostname = function (set, hostname, style) {
+    addHostname(hostname, set);
+    localStorage.setItem(hostname, style);
+};
+// TODO: in React
+var hostnameSet = getHostnameSet();
+Object.keys(hostnameSet).forEach(function (hostname) {
     var option = document.createElement('option');
     option.value = hostname;
     option.innerText = hostname;
     hostnameSelector.appendChild(option);
 });
-loadButton.addEventListener('click', function (e) {
+var rememberLasSelectedHostname = function (hostname) { return localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname); };
+// TODO: do onChangeSelector
+var onLoadButtonClick = function () {
     var selectedOption = hostnameSelector.selectedOptions[0];
     var hostname = selectedOption.value;
-    localStorage['lastSelectedHostname'] = hostname;
     if (hostname.length === 0) {
         loadButton.innerText = 'select hostname';
         clearTimeout(loadButtonTimer);
@@ -27,10 +43,11 @@ loadButton.addEventListener('click', function (e) {
         return;
     }
     hostnameInput.value = hostname;
-    var style = localStorage[hostname];
+    var style = localStorage.getItem(hostname) || '';
     textarea.value = style;
-});
-saveButton.addEventListener('click', function () {
+    localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+};
+var onSaveButtonClick = function () {
     var hostname = hostnameInput.value;
     if (hostname.length === 0) {
         saveButton.innerText = 'input hostname';
@@ -40,14 +57,19 @@ saveButton.addEventListener('click', function () {
         }, 1500);
         return;
     }
-    hostname = hostnameInput.value;
-    hostnames[hostname] = true;
-    localStorage['hostnames'] = JSON.stringify(hostnames);
+    hostnameSet[hostname] = true;
+    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
     var newStyle = textarea.value;
-    localStorage[hostname] = newStyle;
-});
-var lastSelectedHostname = localStorage['lastSelectedHostname'];
-if (hostnames[lastSelectedHostname]) {
+    localStorage.setItem(hostname, newStyle);
+    localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+};
+loadButton.addEventListener('click', onLoadButtonClick);
+saveButton.addEventListener('click', onSaveButtonClick);
+var lastSelectedHostname = localStorage.getItem(LAST_SELECTED_HOST_NAME);
+if (lastSelectedHostname && hostnameSet[lastSelectedHostname]) {
     document.querySelector("option[value=\"" + lastSelectedHostname + "\"]").selected = true;
-    loadButton.click();
+    onLoadButtonClick();
 }
+
+/******/ })()
+;
