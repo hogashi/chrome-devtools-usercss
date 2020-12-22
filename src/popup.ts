@@ -36,6 +36,7 @@ Object.keys(hostnameSet).forEach(hostname => {
 
 const rememberLasSelectedHostname = (hostname: string) => localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
 
+// TODO: do onChangeSelector
 const onLoadButtonClick = (): void => {
   const selectedOption = hostnameSelector.selectedOptions[0];
   const hostname = selectedOption.value;
