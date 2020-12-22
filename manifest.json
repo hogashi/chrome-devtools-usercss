@@ -6,8 +6,20 @@
   "author": "hogashi",
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
       "js": ["index.js"]
     }
-  ]
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "browser_action": {
+    "default_title": "hogashi-user-css",
+    "default_popup": "popup.html"
+  },
+  "options_page": "popup.html"
 }

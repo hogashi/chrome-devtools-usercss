@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body {
+  width: 100%;
+}
+input, select, textarea {
+  font-family: monospace;
+  padding: 3px 4px;
+}
+</style>
+</head>
+<body>
+  <div>
+    <select id="hostname-selector">
+      <option id="default-option" value="">select existing hostname</option>
+    </select>
+    <button id="load-button">load</button>
+  </div>
+  <div>
+    <textarea id="textarea" placeholder="body { color: magenta; }" cols="50" rows="20"></textarea>
+  </div>
+  <div>
+    <label>saving hostname <input id="hostname-input" placeholder="google.com" type="text" size="35"></label>
+  </div>
+  <div>input new hostname to save style for new hostname</div>
+  <div>
+    <button id="save-button">save</button>
+  </div>
+<script src="./popup.js"></script>
+</body>
+</html>
