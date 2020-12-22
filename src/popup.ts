@@ -1,3 +1,10 @@
+type HostnameSet = {
+  [hostname: string]: true;
+};
+
+const HOSTNAME_SET = 'hostnameSet';
+const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+
 const hostnameInput = document.querySelector<HTMLInputElement>('#hostname-input')!;
 const hostnameSelector = document.querySelector<HTMLSelectElement>('#hostname-selector')!;
 const defaultHostnameOption = document.querySelector<HTMLOptionElement>('#default-option')!;
@@ -7,18 +14,31 @@ const saveButton = document.querySelector<HTMLButtonElement>('#save-button')!;
 let loadButtonTimer: number;
 let saveButtonTimer: number;
 
-const hostnames = JSON.parse(localStorage['hostnames'] || '{}');
-Object.keys(hostnames).forEach(hostname => {
+const getHostnameSet = (): HostnameSet => JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
+const addHostname = (hostname: string, set: HostnameSet): void => {
+  set[hostname] = true;
+  localStorage.setItem(HOSTNAME_SET, JSON.stringify(set));
+};
+const getStyleByHostname = (hostname: string): string => localStorage.getItem(hostname) || '';
+const addOrUpdateStyleAndHostname = (set: HostnameSet, hostname: string, style: string): void => {
+  addHostname(hostname, set);
+  localStorage.setItem(hostname, style);
+};
+
+// TODO: in React
+const hostnameSet = getHostnameSet();
+Object.keys(hostnameSet).forEach(hostname => {
   const option = document.createElement('option');
   option.value = hostname;
   option.innerText = hostname;
   hostnameSelector.appendChild(option);
 });
 
-loadButton.addEventListener('click', e => {
+const rememberLasSelectedHostname = (hostname: string) => localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+
+const onLoadButtonClick = (): void => {
   const selectedOption = hostnameSelector.selectedOptions[0];
   const hostname = selectedOption.value;
-  localStorage['lastSelectedHostname'] = hostname;
   if (hostname.length === 0) {
     loadButton.innerText = 'select hostname';
     clearTimeout(loadButtonTimer);
@@ -28,12 +48,14 @@ loadButton.addEventListener('click', e => {
     return;
   }
   hostnameInput.value = hostname;
-  const style = localStorage[hostname];
+  const style = localStorage.getItem(hostname) || '';
   textarea.value = style;
-});
 
-saveButton.addEventListener('click', () => {
-  let hostname = hostnameInput.value;
+  localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+};
+
+const onSaveButtonClick = (): void => {
+  const hostname = hostnameInput.value;
   if (hostname.length === 0) {
     saveButton.innerText = 'input hostname';
     clearTimeout(saveButtonTimer);
@@ -42,16 +64,21 @@ saveButton.addEventListener('click', () => {
     }, 1500);
     return;
   }
-  hostname = hostnameInput.value;
-  hostnames[hostname] = true;
-  localStorage['hostnames'] = JSON.stringify(hostnames);
+  hostnameSet[hostname] = true;
+  localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
 
   const newStyle = textarea.value;
-  localStorage[hostname] = newStyle;
-});
+  localStorage.setItem(hostname, newStyle);
 
-const lastSelectedHostname = localStorage['lastSelectedHostname'];
-if (hostnames[lastSelectedHostname]) {
+  localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+};
+
+loadButton.addEventListener('click', onLoadButtonClick);
+
+saveButton.addEventListener('click', onSaveButtonClick);
+
+const lastSelectedHostname = localStorage.getItem(LAST_SELECTED_HOST_NAME);
+if (lastSelectedHostname && hostnameSet[lastSelectedHostname]) {
   document.querySelector<HTMLOptionElement>(`option[value="${lastSelectedHostname}"]`)!.selected = true;
-  loadButton.click();
+  onLoadButtonClick();
 }
