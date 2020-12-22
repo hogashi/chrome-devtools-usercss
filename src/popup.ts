@@ -11,8 +11,8 @@ const defaultHostnameOption = document.querySelector<HTMLOptionElement>('#defaul
 const loadButton = document.querySelector<HTMLButtonElement>('#load-button')!;
 const textarea = document.querySelector<HTMLTextAreaElement>('#textarea')!;
 const saveButton = document.querySelector<HTMLButtonElement>('#save-button')!;
-let loadButtonTimer: number;
-let saveButtonTimer: number;
+let loadButtonTimer: ReturnType<typeof setTimeout>;
+let saveButtonTimer: ReturnType<typeof setTimeout>;
 
 const getHostnameSet = (): HostnameSet => JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
 const addHostname = (hostname: string, set: HostnameSet): void => {
