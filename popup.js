@@ -7,21 +7,13 @@ const saveButton = document.querySelector('#save-button');
 let loadButtonTimer;
 let saveButtonTimer;
 
-const lastSelectedHostname = localStorage['lastSelectedHostname'];
-
 const hostnames = JSON.parse(localStorage['hostnames'] || '{}');
 Object.keys(hostnames).forEach(hostname => {
   const option = document.createElement('option');
   option.value = hostname;
   option.innerText = hostname;
   hostnameSelector.appendChild(option);
-
-  if (hostname === lastSelectedHostname) {
-    option.selected = true;
-    textarea.value = localStorage[hostname];
-  }
 });
-
 
 loadButton.addEventListener('click', e => {
   const selectedOption = hostnameSelector.selectedOptions[0];
@@ -57,3 +49,9 @@ saveButton.addEventListener('click', () => {
   const newStyle = textarea.value;
   localStorage[hostname] = newStyle;
 });
+
+const lastSelectedHostname = localStorage['lastSelectedHostname'];
+if (hostnames[lastSelectedHostname]) {
+  document.querySelector(`option[value="${lastSelectedHostname}"]`).selected = true;
+  loadButton.click();
+}
