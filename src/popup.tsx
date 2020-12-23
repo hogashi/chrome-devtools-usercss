@@ -20,6 +20,10 @@ const App: React.FC = () => {
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hostname => <option key={hostname} value={hostname}>{hostname}</option>);
 
+  useEffect(() => {
+    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
+  }, [hostnameSet]);
+
   const onSaveButtonClick = useCallback((): void => {
     if (hostname.length === 0) {
       saveButton.innerText = 'input hostname';
