@@ -92,27 +92,3 @@ const App: React.FC = () => {
 };
 
 ReactDOM.render(<App />, document.querySelector<HTMLDivElement>('#root'));
-
-
-
-
-const hostnameInput = document.querySelector<HTMLInputElement>('#hostname-input')!;
-const hostnameSelector = document.querySelector<HTMLSelectElement>('#hostname-selector')!;
-const defaultHostnameOption = document.querySelector<HTMLOptionElement>('#default-option')!;
-const loadButton = document.querySelector<HTMLButtonElement>('#load-button')!;
-const textarea = document.querySelector<HTMLTextAreaElement>('#textarea')!;
-const saveButton = document.querySelector<HTMLButtonElement>('#save-button')!;
-let loadButtonTimer: ReturnType<typeof setTimeout>;
-let saveButtonTimer: ReturnType<typeof setTimeout>;
-
-const addHostname = (hostname: string, set: HostnameSet): void => {
-  set[hostname] = true;
-  localStorage.setItem(HOSTNAME_SET, JSON.stringify(set));
-};
-const getStyleByHostname = (hostname: string): string => localStorage.getItem(hostname) || '';
-const addOrUpdateStyleAndHostname = (set: HostnameSet, hostname: string, style: string): void => {
-  addHostname(hostname, set);
-  localStorage.setItem(hostname, style);
-};
-
-const rememberLasSelectedHostname = (hostname: string) => localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
