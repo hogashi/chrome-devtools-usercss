@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import ReactDOM from 'react-dom';
 
 type HostnameSet = {
@@ -12,6 +12,44 @@ const App: React.FC = () => {
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hostname => <option key={hostname} value={hostname}>{hostname}</option>);
 
+  const onSaveButtonClick = useCallback((): void => {
+    const hostname = hostnameInput.value;
+    if (hostname.length === 0) {
+      saveButton.innerText = 'input hostname';
+      clearTimeout(saveButtonTimer);
+      saveButtonTimer = setTimeout(() => {
+        saveButton.innerText = 'save';
+      }, 1500);
+      return;
+    }
+    hostnameSet[hostname] = true;
+    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
+
+    const newStyle = textarea.value;
+    localStorage.setItem(hostname, newStyle);
+
+    localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+  }, [hostnameSet]);
+
+  // TODO: do onChangeSelector
+  const onLoadButtonClick = useCallback((): void => {
+    const selectedOption = hostnameSelector.selectedOptions[0];
+    const hostname = selectedOption.value;
+    if (hostname.length === 0) {
+      loadButton.innerText = 'select hostname';
+      clearTimeout(loadButtonTimer);
+      loadButtonTimer = setTimeout(() => {
+        loadButton.innerText = 'load';
+      }, 1500);
+      return;
+    }
+    hostnameInput.value = hostname;
+    const style = localStorage.getItem(hostname) || '';
+    textarea.value = style;
+
+    localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+  }, []);
+
   return (
     <div>
       <div>
@@ -19,7 +57,7 @@ const App: React.FC = () => {
           <option id="default-option" value="">select existing hostname</option>
           { hostNamesOptions }
         </select>
-        <button id="load-button">load</button>
+        <button id="load-button" onClick={onLoadButtonClick}>load</button>
       </div>
       <div>
         <textarea id="textarea" placeholder="body { color: magenta; }" cols={50} rows={20}></textarea>
@@ -29,7 +67,7 @@ const App: React.FC = () => {
       </div>
       <div>input new hostname to save style for new hostname</div>
       <div>
-        <button id="save-button">save</button>
+        <button id="save-button" onClick={onSaveButtonClick}>save</button>
       </div>
     </div>
   );
@@ -60,48 +98,6 @@ const addOrUpdateStyleAndHostname = (set: HostnameSet, hostname: string, style: 
 };
 
 const rememberLasSelectedHostname = (hostname: string) => localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
-
-// TODO: do onChangeSelector
-const onLoadButtonClick = (): void => {
-  const selectedOption = hostnameSelector.selectedOptions[0];
-  const hostname = selectedOption.value;
-  if (hostname.length === 0) {
-    loadButton.innerText = 'select hostname';
-    clearTimeout(loadButtonTimer);
-    loadButtonTimer = setTimeout(() => {
-      loadButton.innerText = 'load';
-    }, 1500);
-    return;
-  }
-  hostnameInput.value = hostname;
-  const style = localStorage.getItem(hostname) || '';
-  textarea.value = style;
-
-  localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
-};
-
-const onSaveButtonClick = (): void => {
-  const hostname = hostnameInput.value;
-  if (hostname.length === 0) {
-    saveButton.innerText = 'input hostname';
-    clearTimeout(saveButtonTimer);
-    saveButtonTimer = setTimeout(() => {
-      saveButton.innerText = 'save';
-    }, 1500);
-    return;
-  }
-  hostnameSet[hostname] = true;
-  localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
-
-  const newStyle = textarea.value;
-  localStorage.setItem(hostname, newStyle);
-
-  localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
-};
-
-loadButton.addEventListener('click', onLoadButtonClick);
-
-saveButton.addEventListener('click', onSaveButtonClick);
 
 const lastSelectedHostname = localStorage.getItem(LAST_SELECTED_HOST_NAME);
 if (lastSelectedHostname && hostnameSet[lastSelectedHostname]) {
