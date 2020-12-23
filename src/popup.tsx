@@ -1,6 +1,34 @@
+import * as React from 'react';
+import * as ReactDOM from 'react-dom';
+
 type HostnameSet = {
   [hostname: string]: true;
 };
+
+const App: React.FC = () => {
+  return (
+    <div>
+      <div>
+        <select id="hostname-selector">
+          <option id="default-option" value="">select existing hostname</option>
+        </select>
+        <button id="load-button">load</button>
+      </div>
+      <div>
+        <textarea id="textarea" placeholder="body { color: magenta; }" cols={50} rows={20}></textarea>
+      </div>
+      <div>
+        <label>saving hostname <input id="hostname-input" placeholder="google.com" type="text" size={35} /></label>
+      </div>
+      <div>input new hostname to save style for new hostname</div>
+      <div>
+        <button id="save-button">save</button>
+      </div>
+    </div>
+  );
+};
+
+ReactDOM.render(<App />, document.querySelector<HTMLDivElement>('#root'));
 
 const HOSTNAME_SET = 'hostnameSet';
 const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
