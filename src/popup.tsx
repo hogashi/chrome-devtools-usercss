@@ -6,19 +6,26 @@ type HostnameSet = {
 };
 
 const HOSTNAME_SET = 'hostnameSet';
+const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 const LOAD_BUTTON_INIT_VALUE = 'load';
+const LOAD_BUTTON_SELECT_HOSTNAME = 'select hostname';
 const SAVE_BUTTON_INIT_VALUE = 'save';
+const SAVE_BUTTON_INPUT_HOSTNAME = 'input hostname';
+
 const initHostnameSet: HostnameSet = JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
+const lastSelectedHostname = localStorage.getItem(LAST_SELECTED_HOST_NAME);
 
 const App: React.FC = () => {
-  const [hostname, setHostname] = useState('');
+  const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
   const [loadButtonValue, setLoadButtonValue] = useState(LOAD_BUTTON_INIT_VALUE);
   const [saveButtonValue, setSaveButtonValue] = useState(SAVE_BUTTON_INIT_VALUE);
   const [loadButtonTimer, setLoadButtonTimer] = useState<number>();
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
   const hostnames = Object.keys(hostnameSet);
-  const hostNamesOptions = hostnames.map(hostname => <option key={hostname} value={hostname}>{hostname}</option>);
+  const hostNamesOptions = hostnames.map(hn => {
+    return <option key={hn} value={hn} selected={hn === hostname}>{hn}</option>;
+  });
 
   useEffect(() => {
     localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
@@ -26,10 +33,10 @@ const App: React.FC = () => {
 
   const onSaveButtonClick = useCallback((): void => {
     if (hostname.length === 0) {
-      saveButton.innerText = 'input hostname';
+      saveButton.innerText = SAVE_BUTTON_INPUT_HOSTNAME;
       clearTimeout(saveButtonTimer);
       setSaveButtonTimer(window.setTimeout(() => {
-        saveButton.innerText = 'save';
+        saveButton.innerText = SAVE_BUTTON_INIT_VALUE;
       }, 1500));
       return;
     }
@@ -47,10 +54,10 @@ const App: React.FC = () => {
     const selectedOption = hostnameSelector.selectedOptions[0];
     const hostname = selectedOption.value;
     if (hostname.length === 0) {
-      loadButton.innerText = 'select hostname';
+      loadButton.innerText = LOAD_BUTTON_SELECT_HOSTNAME;
       clearTimeout(loadButtonTimer);
       setLoadButtonTimer(window.setTimeout(() => {
-        loadButton.innerText = 'load';
+        loadButton.innerText = LOAD_BUTTON_INIT_VALUE;
       }, 1500));
       return;
     }
@@ -86,7 +93,8 @@ const App: React.FC = () => {
 
 ReactDOM.render(<App />, document.querySelector<HTMLDivElement>('#root'));
 
-const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+
+
 
 const hostnameInput = document.querySelector<HTMLInputElement>('#hostname-input')!;
 const hostnameSelector = document.querySelector<HTMLSelectElement>('#hostname-selector')!;
@@ -108,9 +116,3 @@ const addOrUpdateStyleAndHostname = (set: HostnameSet, hostname: string, style: 
 };
 
 const rememberLasSelectedHostname = (hostname: string) => localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
-
-const lastSelectedHostname = localStorage.getItem(LAST_SELECTED_HOST_NAME);
-if (lastSelectedHostname && hostnameSet[lastSelectedHostname]) {
-  document.querySelector<HTMLOptionElement>(`option[value="${lastSelectedHostname}"]`)!.selected = true;
-  onLoadButtonClick();
-}
