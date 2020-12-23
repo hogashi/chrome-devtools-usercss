@@ -7,7 +7,9 @@
   "author": "hogextend@gmail.com",
   "license": "MIT",
   "scripts": {
-    "test": "tsc --noEmit",
+    "test:eslint": "eslint src/*",
+    "test:tsc": "tsc --noEmit",
+    "test": "run-p test:eslint test:tsc",
     "build:webpack": "webpack",
     "build": "run-s test build:webpack"
   },
