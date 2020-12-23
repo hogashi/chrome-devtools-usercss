@@ -2,7 +2,7 @@ module.exports = {
   entry: {
     index: './src/index.ts',
     background: './src/background.ts',
-    popup: './src/popup.ts',
+    popup: './src/popup.tsx',
   },
   output: {
     filename: '[name].js',
