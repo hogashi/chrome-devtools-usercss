@@ -47,7 +47,6 @@ const App: React.FC = () => {
   }, [hostname]);
 
   const onInputChange = useCallback((event: React.ChangeEvent<HTMLInputElement>): void => {
-    console.log(event.target.value);
     setInputValue(event.target.value);
   }, []);
 
@@ -56,7 +55,6 @@ const App: React.FC = () => {
   }, []);
 
   const onSaveButtonClick = useCallback((): void => {
-    console.log({ inputValue, textAreaValue });
     const newHostname = inputValue;
     if (!hostnameSet[newHostname]) {
       const newHostnameSet = { ...hostnameSet };
