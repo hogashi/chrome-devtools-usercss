@@ -672,17 +672,12 @@ var App = function App() {
     setTextAreaValue(style);
   }, [hostname]);
   var onInputChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
-    console.log(event.target.value);
     setInputValue(event.target.value);
   }, []);
   var onTextAreaChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
     setTextAreaValue(event.target.value);
   }, []);
   var onSaveButtonClick = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function () {
-    console.log({
-      inputValue: inputValue,
-      textAreaValue: textAreaValue
-    });
     var newHostname = inputValue;
 
     if (!hostnameSet[newHostname]) {

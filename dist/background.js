@@ -1,6 +1,5 @@
 /******/ (() => { // webpackBootstrap
 var getStyle = function getStyle(message, _, sendResponse) {
-  console.log(message);
   var hostname = message.hostname;
 
   if (hostname.length === 0) {
