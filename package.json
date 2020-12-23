@@ -7,6 +7,9 @@
   "author": "hogextend@gmail.com",
   "license": "MIT",
   "devDependencies": {
+    "@babel/cli": "^7.12.10",
+    "@babel/core": "^7.12.10",
+    "@babel/preset-env": "^7.12.11",
     "@types/chrome": "^0.0.127",
     "@types/react": "^17.0.0",
     "@types/react-dom": "^17.0.0",
@@ -16,7 +19,9 @@
     "webpack-cli": "^4.2.0"
   },
   "dependencies": {
+    "core-js": "^3.8.1",
     "react": "^17.0.1",
-    "react-dom": "^17.0.1"
+    "react-dom": "^17.0.1",
+    "regenerator-runtime": "^0.13.7"
   }
 }
