@@ -1,25 +1,32 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 
 type HostnameSet = {
   [hostname: string]: true;
 };
 
-const getHostnameSet = (): HostnameSet => JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
+const HOSTNAME_SET = 'hostnameSet';
+const LOAD_BUTTON_INIT_VALUE = 'load';
+const SAVE_BUTTON_INIT_VALUE = 'save';
+const initHostnameSet: HostnameSet = JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
 
 const App: React.FC = () => {
-  const [hostnameSet, setHostnameSet] = useState(getHostnameSet());
+  const [hostname, setHostname] = useState('');
+  const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
+  const [loadButtonValue, setLoadButtonValue] = useState(LOAD_BUTTON_INIT_VALUE);
+  const [saveButtonValue, setSaveButtonValue] = useState(SAVE_BUTTON_INIT_VALUE);
+  const [loadButtonTimer, setLoadButtonTimer] = useState<number>();
+  const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hostname => <option key={hostname} value={hostname}>{hostname}</option>);
 
   const onSaveButtonClick = useCallback((): void => {
-    const hostname = hostnameInput.value;
     if (hostname.length === 0) {
       saveButton.innerText = 'input hostname';
       clearTimeout(saveButtonTimer);
-      saveButtonTimer = setTimeout(() => {
+      setSaveButtonTimer(window.setTimeout(() => {
         saveButton.innerText = 'save';
-      }, 1500);
+      }, 1500));
       return;
     }
     hostnameSet[hostname] = true;
@@ -38,9 +45,9 @@ const App: React.FC = () => {
     if (hostname.length === 0) {
       loadButton.innerText = 'select hostname';
       clearTimeout(loadButtonTimer);
-      loadButtonTimer = setTimeout(() => {
+      setLoadButtonTimer(window.setTimeout(() => {
         loadButton.innerText = 'load';
-      }, 1500);
+      }, 1500));
       return;
     }
     hostnameInput.value = hostname;
@@ -54,20 +61,20 @@ const App: React.FC = () => {
     <div>
       <div>
         <select id="hostname-selector">
-          <option id="default-option" value="">select existing hostname</option>
-          { hostNamesOptions }
+          <option value="">select existing hostname</option>
+          {hostNamesOptions}
         </select>
-        <button id="load-button" onClick={onLoadButtonClick}>load</button>
+        <button id="load-button" onClick={onLoadButtonClick}>{loadButtonValue}</button>
       </div>
       <div>
         <textarea id="textarea" placeholder="body { color: magenta; }" cols={50} rows={20}></textarea>
       </div>
       <div>
-        <label>saving hostname <input id="hostname-input" placeholder="google.com" type="text" size={35} /></label>
+        <label>saving hostname <input id="hostname-input" placeholder="google.com" type="text" size={35} value={hostname} /></label>
       </div>
       <div>input new hostname to save style for new hostname</div>
       <div>
-        <button id="save-button" onClick={onSaveButtonClick}>save</button>
+        <button id="save-button" onClick={onSaveButtonClick}>{saveButtonValue}</button>
       </div>
     </div>
   );
@@ -75,7 +82,6 @@ const App: React.FC = () => {
 
 ReactDOM.render(<App />, document.querySelector<HTMLDivElement>('#root'));
 
-const HOSTNAME_SET = 'hostnameSet';
 const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 
 const hostnameInput = document.querySelector<HTMLInputElement>('#hostname-input')!;
