@@ -602,10 +602,11 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 
 
+var PLACEHOLDER = "body {\n  color: magenta;\n}";
 var HOSTNAME_SET = 'hostnameSet';
 var LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
-var SAVE_BUTTON_INIT_VALUE = 'save';
-var SAVE_BUTTON_SAVED_VALUE = '...saved';
+var SAVE_BUTTON_INIT_VALUE = '保存';
+var SAVE_BUTTON_SAVED_VALUE = 'しました';
 var initHostnameSet = JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
 
 var lastSelectedHostname = function () {
@@ -702,18 +703,20 @@ var App = function App() {
   }, []);
   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", {
     children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
-      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", {
-        id: "hostname-selector",
-        onChange: onSelectChange,
-        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", {
-          value: "",
-          children: "select existing hostname"
-        }), hostNamesOptions]
+      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", {
+        children: ["\u7DE8\u96C6\u3057\u305F\u3044\u4FDD\u5B58\u6E08\u307F\u30C9\u30E1\u30A4\u30F3\u3092\u9078\u3076", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("br", {}), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", {
+          id: "hostname-selector",
+          onChange: onSelectChange,
+          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", {
+            value: "",
+            children: "\u9078\u629E..."
+          }), hostNamesOptions]
+        })]
       })
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("textarea", {
         id: "textarea",
-        placeholder: "body { color: magenta; }",
+        placeholder: PLACEHOLDER,
         cols: 50,
         rows: 20,
         value: textAreaValue,
@@ -721,7 +724,7 @@ var App = function App() {
       })
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", {
-        children: ["saving hostname ", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", {
+        children: ["\u3053\u306EUserCSS\u3092\u4FDD\u5B58\u3059\u308B\u30C9\u30E1\u30A4\u30F3", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("br", {}), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("input", {
           id: "hostname-input",
           placeholder: "google.com",
           type: "text",
@@ -730,8 +733,6 @@ var App = function App() {
           onChange: onInputChange
         })]
       })
-    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
-      children: "input new hostname to save style for new hostname"
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", {
         id: "save-button",

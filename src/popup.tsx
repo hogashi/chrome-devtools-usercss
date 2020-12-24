@@ -5,10 +5,13 @@ type HostnameSet = {
   [hostname: string]: true;
 };
 
+const PLACEHOLDER = `body {
+  color: magenta;
+}`;
 const HOSTNAME_SET = 'hostnameSet';
 const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
-const SAVE_BUTTON_INIT_VALUE = 'save';
-const SAVE_BUTTON_SAVED_VALUE = '...saved';
+const SAVE_BUTTON_INIT_VALUE = '保存';
+const SAVE_BUTTON_SAVED_VALUE = 'しました';
 
 const initHostnameSet: HostnameSet = JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
 const lastSelectedHostname = (() => {
@@ -82,18 +85,23 @@ const App: React.FC = () => {
   return (
     <div>
       <div>
-        <select id="hostname-selector" onChange={onSelectChange}>
-          <option value="">select existing hostname</option>
-          {hostNamesOptions}
-        </select>
+        <label>
+          編集したい保存済みドメインを選ぶ<br />
+          <select id="hostname-selector" onChange={onSelectChange}>
+            <option value="">選択...</option>
+            {hostNamesOptions}
+          </select>
+        </label>
       </div>
       <div>
-        <textarea id="textarea" placeholder="body { color: magenta; }" cols={50} rows={20} value={textAreaValue} onChange={onTextAreaChange}></textarea>
+        <textarea id="textarea" placeholder={PLACEHOLDER} cols={50} rows={20} value={textAreaValue} onChange={onTextAreaChange}></textarea>
       </div>
       <div>
-        <label>saving hostname <input id="hostname-input" placeholder="google.com" type="text" size={35} value={inputValue} onChange={onInputChange} /></label>
+        <label>
+          このUserCSSを保存するドメイン<br />
+          <input id="hostname-input" placeholder="google.com" type="text" size={35} value={inputValue} onChange={onInputChange} />
+        </label>
       </div>
-      <div>input new hostname to save style for new hostname</div>
       <div>
         <button id="save-button" disabled={inputValue.length === 0} onClick={onSaveButtonClick}>{saveButtonValue}</button>
       </div>
