@@ -35,13 +35,17 @@ const App: React.FC = () => {
   );
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
 
+  // hostnameたちの更新
   useEffect(() => {
     localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
   }, [hostnameSet]);
 
+  // hostnameのUserCSSをtextareaにセットする
   useEffect(() => {
+    // hostnameを「前に最後に見てたhostname」として登録する
     setLastSelectedHostname(hostname);
 
+    // hostnameをhostnameのinputにセットする
     setInputValue(hostname);
 
     if (hostname.length === 0) {
@@ -53,6 +57,9 @@ const App: React.FC = () => {
     setTextAreaValue(style);
   }, [hostname]);
 
+  // EventListenerたち
+
+  // hostnameたちのselectタグで選択したとき
   const onSelectChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>): void => {
       // 選択したoptionタグの値を取ってhostnameとする
@@ -63,6 +70,7 @@ const App: React.FC = () => {
     []
   );
 
+  // UserCSSのtextarea入力したとき(UserCSSの値を更新する)
   const onTextAreaChange = useCallback(
     (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
       setTextAreaValue(event.target.value);
@@ -70,6 +78,7 @@ const App: React.FC = () => {
     []
   );
 
+  // hostnameのinputを入力したとき(hostnameのinputの値を更新する)
   const onInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
       setInputValue(event.target.value);
@@ -77,9 +86,11 @@ const App: React.FC = () => {
     []
   );
 
+  // 保存ボタンを押したとき
   const onSaveButtonClick = useCallback((): void => {
     const newHostname = inputValue;
     if (!hostnameSet[newHostname]) {
+      // hostnameまだないときhostnameたちに新しく登録する
       const newHostnameSet = { ...hostnameSet };
       newHostnameSet[newHostname] = true;
       setHostnameSet(newHostnameSet);
@@ -87,7 +98,9 @@ const App: React.FC = () => {
 
     localStorage.setItem(newHostname, textAreaValue);
 
+    // 保存ボタンで保存した旨出す
     setSaveButtonValue(SAVE_BUTTON_SAVED_VALUE);
+    // ちょっとしたら保存ボタン戻す
     clearTimeout(saveButtonTimer);
     setSaveButtonTimer(
       window.setTimeout(() => {
@@ -95,9 +108,11 @@ const App: React.FC = () => {
       }, 1000)
     );
 
+    // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
   }, [hostnameSet, inputValue, textAreaValue, saveButtonTimer]);
 
+  // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hn => {
     return (
