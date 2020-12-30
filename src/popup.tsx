@@ -2,8 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor';
 
+// @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
-  getWorkerUrl: function (moduleId, label) {
+  getWorkerUrl: function (_workerId: string, label: string) {
     // if (label === 'json') {
     // 	return './json.worker.bundle.js';
     // }
