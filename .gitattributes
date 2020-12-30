@@ -1,1 +1,1 @@
-dist/*.js linguist-generated
+dist/*.js -diff
