@@ -154,15 +154,12 @@ const App: React.FC = () => {
         </label>
       </div>
       <div>
-        <textarea
-          id='textarea'
-          placeholder={PLACEHOLDER}
-          cols={50}
-          rows={20}
-          value={textAreaValue}
-          onChange={onTextAreaChange}
-        ></textarea>
       </div>
+      <div
+        id='editor'
+        ref={editorDivRef}
+        style={{ height: '300px', width: '500px' }}
+      ></div>
       <div>
         <label>
           このUserCSSを保存するドメイン
