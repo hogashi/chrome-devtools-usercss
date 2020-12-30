@@ -715,7 +715,15 @@ var App = function App() {
       selected: hn === hostname,
       children: hn
     }, hn);
-  });
+  }); // キー押したとき
+
+  var onKeyDown = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
+    if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      event.stopPropagation();
+      onSaveButtonClick();
+    }
+  }, [onSaveButtonClick]);
   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", {
     children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", {
@@ -735,7 +743,8 @@ var App = function App() {
         cols: 50,
         rows: 20,
         value: textAreaValue,
-        onChange: onTextAreaChange
+        onChange: onTextAreaChange,
+        onKeyDown: onKeyDown
       })
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", {
