@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor';
 
@@ -47,19 +47,39 @@ const setLastSelectedHostname = (hostname: string): void =>
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
-  const [textAreaValue, setTextAreaValue] = useState('');
+  const [
+    editor,
+    setEditor,
+  ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorDivRef = useRef<HTMLDivElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
   const [saveButtonValue, setSaveButtonValue] = useState(
     SAVE_BUTTON_INIT_VALUE
   );
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
 
+  // エディタの初期化
+  useEffect(() => {
+    if (!editorDivRef.current) {
+      return;
+    }
+    const newEditor = monaco.editor.create(editorDivRef.current, {
+      value: PLACEHOLDER,
+      language: 'css',
+      lineNumbersMinChars: 2,
+      minimap: {
+        maxColumn: 40,
+      },
+    });
+    setEditor(newEditor);
+  }, []);
+
   // hostnameたちの更新
   useEffect(() => {
     localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
   }, [hostnameSet]);
 
-  // hostnameのUserCSSをtextareaにセットする
+  // hostnameのUserCSSをエディタにセットする
   useEffect(() => {
     // hostnameを「前に最後に見てたhostname」として登録する
     setLastSelectedHostname(hostname);
@@ -68,13 +88,14 @@ const App: React.FC = () => {
     setHostnameInputValue(hostname);
 
     if (hostname.length === 0) {
-      setTextAreaValue('');
+      // hostnameのselectタグのデフォルトのoptionタグのときエディタは空にする
+      editor?.setValue('');
       return;
     }
 
     const style = localStorage.getItem(hostname) || '';
-    setTextAreaValue(style);
-  }, [hostname]);
+    editor?.setValue(style);
+  }, [editor, hostname]);
 
   // EventListenerたち
 
@@ -89,14 +110,6 @@ const App: React.FC = () => {
     []
   );
 
-  // UserCSSのtextarea入力したとき(UserCSSの値を更新する)
-  const onTextAreaChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
-      setTextAreaValue(event.target.value);
-    },
-    []
-  );
-
   // hostnameのinputを入力したとき(hostnameのinputの値を更新する)
   const onHostnameInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -107,6 +120,12 @@ const App: React.FC = () => {
 
   // 保存ボタンを押したとき
   const onSaveButtonClick = useCallback((): void => {
+    if (!editor) {
+      // エディタあるはずだけどなかったらおかしいので何もせずに終わる
+      console.log('editor not found');
+      return;
+    }
+
     const newHostname = hostnameInputValue;
     if (!hostnameSet[newHostname]) {
       // hostnameまだないときhostnameたちに新しく登録する
@@ -115,7 +134,9 @@ const App: React.FC = () => {
       setHostnameSet(newHostnameSet);
     }
 
-    localStorage.setItem(newHostname, textAreaValue);
+    // エディタに書かれてる文字列を取ってきてhostnameのUserCSSとして登録する
+    const newValue = editor.getValue();
+    localStorage.setItem(newHostname, newValue);
 
     // 保存ボタンで保存した旨出す
     setSaveButtonValue(SAVE_BUTTON_SAVED_VALUE);
@@ -129,7 +150,7 @@ const App: React.FC = () => {
 
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
-  }, [hostnameSet, hostnameInputValue, textAreaValue, saveButtonTimer]);
+  }, [editor, hostnameSet, hostnameInputValue, saveButtonTimer]);
 
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
