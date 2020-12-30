@@ -26,6 +26,9 @@ type HostnameSet = {
 
 const HOSTNAME_SET = 'hostnameSet';
 const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+const WORD_WRAP = 'wordWrap';
+const wordWrapOn = 'on';
+const wordWrapOff = 'off';
 
 const PLACEHOLDER = `body {
   color: magenta;
@@ -43,10 +46,16 @@ const lastSelectedHostname = (() => {
 })();
 const setLastSelectedHostname = (hostname: string): void =>
   localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+// 行の折返し(デフォルトでON)
+const initwordWrapChecked: boolean =
+  localStorage.getItem(WORD_WRAP) !== wordWrapOff;
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
+  const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(
+    initwordWrapChecked
+  );
   const [
     editor,
     setEditor,
@@ -73,6 +82,13 @@ const App: React.FC = () => {
     });
     setEditor(newEditor);
   }, []);
+
+  // 行の折返しの更新
+  useEffect(() => {
+    const wordWrap = wordWrapChecked ? wordWrapOn : wordWrapOff;
+    editor?.updateOptions({ wordWrap });
+    localStorage.setItem(WORD_WRAP, wordWrap);
+  }, [editor, wordWrapChecked]);
 
   // hostnameたちの更新
   useEffect(() => {
@@ -114,6 +130,14 @@ const App: React.FC = () => {
   const onHostnameInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
       setHostnameInputValue(event.target.value);
+    },
+    []
+  );
+
+  // 行の折返しのcheckboxを変えたとき
+  const onWordWrapChanged = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>): void => {
+      setWordWrapChecked(event.target.checked);
     },
     []
   );
@@ -175,6 +199,15 @@ const App: React.FC = () => {
         </label>
       </div>
       <div>
+        <label>
+          <input
+            id='word-wrap'
+            type='checkbox'
+            checked={wordWrapChecked}
+            onChange={onWordWrapChanged}
+          />
+          行の折返し
+        </label>
       </div>
       <div
         id='editor'
