@@ -122,6 +122,18 @@ const App: React.FC = () => {
     );
   });
 
+  // キー押したとき
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        onSaveButtonClick();
+      }
+    },
+    [onSaveButtonClick]
+  );
+
   return (
     <div>
       <div>
@@ -142,6 +154,7 @@ const App: React.FC = () => {
           rows={20}
           value={textAreaValue}
           onChange={onTextAreaChange}
+          onKeyDown={onKeyDown}
         ></textarea>
       </div>
       <div>
