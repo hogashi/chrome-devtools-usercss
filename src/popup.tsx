@@ -29,7 +29,7 @@ const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
   const [textAreaValue, setTextAreaValue] = useState('');
-  const [inputValue, setInputValue] = useState('');
+  const [hostnameInputValue, setHostnameInputValue] = useState('');
   const [saveButtonValue, setSaveButtonValue] = useState(
     SAVE_BUTTON_INIT_VALUE
   );
@@ -46,7 +46,7 @@ const App: React.FC = () => {
     setLastSelectedHostname(hostname);
 
     // hostnameをhostnameのinputにセットする
-    setInputValue(hostname);
+    setHostnameInputValue(hostname);
 
     if (hostname.length === 0) {
       setTextAreaValue('');
@@ -60,7 +60,7 @@ const App: React.FC = () => {
   // EventListenerたち
 
   // hostnameたちのselectタグで選択したとき
-  const onSelectChange = useCallback(
+  const onHostnameSelectChange = useCallback(
     (event: React.ChangeEvent<HTMLSelectElement>): void => {
       // 選択したoptionタグの値を取ってhostnameとする
       const selectedOption = event.target.selectedOptions[0];
@@ -79,16 +79,16 @@ const App: React.FC = () => {
   );
 
   // hostnameのinputを入力したとき(hostnameのinputの値を更新する)
-  const onInputChange = useCallback(
+  const onHostnameInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
-      setInputValue(event.target.value);
+      setHostnameInputValue(event.target.value);
     },
     []
   );
 
   // 保存ボタンを押したとき
   const onSaveButtonClick = useCallback((): void => {
-    const newHostname = inputValue;
+    const newHostname = hostnameInputValue;
     if (!hostnameSet[newHostname]) {
       // hostnameまだないときhostnameたちに新しく登録する
       const newHostnameSet = { ...hostnameSet };
@@ -110,7 +110,7 @@ const App: React.FC = () => {
 
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
-  }, [hostnameSet, inputValue, textAreaValue, saveButtonTimer]);
+  }, [hostnameSet, hostnameInputValue, textAreaValue, saveButtonTimer]);
 
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
@@ -128,7 +128,7 @@ const App: React.FC = () => {
         <label>
           編集したい保存済みドメインを選ぶ
           <br />
-          <select id='hostname-selector' onChange={onSelectChange}>
+          <select id='hostname-selector' onChange={onHostnameSelectChange}>
             <option value=''>選択...</option>
             {hostNamesOptions}
           </select>
@@ -153,15 +153,15 @@ const App: React.FC = () => {
             placeholder='google.com'
             type='text'
             size={35}
-            value={inputValue}
-            onChange={onInputChange}
+            value={hostnameInputValue}
+            onChange={onHostnameInputChange}
           />
         </label>
       </div>
       <div>
         <button
           id='save-button'
-          disabled={inputValue.length === 0}
+          disabled={hostnameInputValue.length === 0}
           onClick={onSaveButtonClick}
         >
           {saveButtonValue}
