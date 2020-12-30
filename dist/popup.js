@@ -602,9 +602,9 @@ function _arrayWithHoles(arr) { if (Array.isArray(arr)) return arr; }
 
 
 
-var PLACEHOLDER = "body {\n  color: magenta;\n}";
 var HOSTNAME_SET = 'hostnameSet';
 var LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+var PLACEHOLDER = "body {\n  color: magenta;\n}";
 var SAVE_BUTTON_INIT_VALUE = '保存';
 var SAVE_BUTTON_SAVED_VALUE = 'しました';
 var initHostnameSet = JSON.parse(localStorage.getItem(HOSTNAME_SET) || '{}');
@@ -619,25 +619,25 @@ var setLastSelectedHostname = function setLastSelectedHostname(hostname) {
 };
 
 var App = function App() {
-  var _useState = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(''),
+  var _useState = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(lastSelectedHostname),
       _useState2 = _slicedToArray(_useState, 2),
-      inputValue = _useState2[0],
-      setInputValue = _useState2[1];
+      hostname = _useState2[0],
+      setHostname = _useState2[1];
 
-  var _useState3 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(''),
+  var _useState3 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(initHostnameSet),
       _useState4 = _slicedToArray(_useState3, 2),
-      textAreaValue = _useState4[0],
-      setTextAreaValue = _useState4[1];
+      hostnameSet = _useState4[0],
+      setHostnameSet = _useState4[1];
 
-  var _useState5 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(lastSelectedHostname),
+  var _useState5 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(''),
       _useState6 = _slicedToArray(_useState5, 2),
-      hostname = _useState6[0],
-      setHostname = _useState6[1];
+      textAreaValue = _useState6[0],
+      setTextAreaValue = _useState6[1];
 
-  var _useState7 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(initHostnameSet),
+  var _useState7 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(''),
       _useState8 = _slicedToArray(_useState7, 2),
-      hostnameSet = _useState8[0],
-      setHostnameSet = _useState8[1];
+      hostnameInputValue = _useState8[0],
+      setHostnameInputValue = _useState8[1];
 
   var _useState9 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(SAVE_BUTTON_INIT_VALUE),
       _useState10 = _slicedToArray(_useState9, 2),
@@ -647,7 +647,66 @@ var App = function App() {
   var _useState11 = (0,react__WEBPACK_IMPORTED_MODULE_1__.useState)(),
       _useState12 = _slicedToArray(_useState11, 2),
       saveButtonTimer = _useState12[0],
-      setSaveButtonTimer = _useState12[1];
+      setSaveButtonTimer = _useState12[1]; // hostnameたちの更新
+
+
+  (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(function () {
+    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
+  }, [hostnameSet]); // hostnameのUserCSSをtextareaにセットする
+
+  (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(function () {
+    // hostnameを「前に最後に見てたhostname」として登録する
+    setLastSelectedHostname(hostname); // hostnameをhostnameのinputにセットする
+
+    setHostnameInputValue(hostname);
+
+    if (hostname.length === 0) {
+      setTextAreaValue('');
+      return;
+    }
+
+    var style = localStorage.getItem(hostname) || '';
+    setTextAreaValue(style);
+  }, [hostname]); // EventListenerたち
+  // hostnameたちのselectタグで選択したとき
+
+  var onHostnameSelectChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
+    // 選択したoptionタグの値を取ってhostnameとする
+    var selectedOption = event.target.selectedOptions[0];
+    var newHostname = selectedOption.value;
+    setHostname(newHostname);
+  }, []); // UserCSSのtextarea入力したとき(UserCSSの値を更新する)
+
+  var onTextAreaChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
+    setTextAreaValue(event.target.value);
+  }, []); // hostnameのinputを入力したとき(hostnameのinputの値を更新する)
+
+  var onHostnameInputChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
+    setHostnameInputValue(event.target.value);
+  }, []); // 保存ボタンを押したとき
+
+  var onSaveButtonClick = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function () {
+    var newHostname = hostnameInputValue;
+
+    if (!hostnameSet[newHostname]) {
+      // hostnameまだないときhostnameたちに新しく登録する
+      var newHostnameSet = _objectSpread({}, hostnameSet);
+
+      newHostnameSet[newHostname] = true;
+      setHostnameSet(newHostnameSet);
+    }
+
+    localStorage.setItem(newHostname, textAreaValue); // 保存ボタンで保存した旨出す
+
+    setSaveButtonValue(SAVE_BUTTON_SAVED_VALUE); // ちょっとしたら保存ボタン戻す
+
+    clearTimeout(saveButtonTimer);
+    setSaveButtonTimer(window.setTimeout(function () {
+      setSaveButtonValue(SAVE_BUTTON_INIT_VALUE);
+    }, 1000)); // selectタグのoptionタグをhostnameにする
+
+    setHostname(newHostname);
+  }, [hostnameSet, hostnameInputValue, textAreaValue, saveButtonTimer]); // hostnameのoptionタグをつくる
 
   var hostnames = Object.keys(hostnameSet);
   var hostNamesOptions = hostnames.map(function (hn) {
@@ -657,56 +716,12 @@ var App = function App() {
       children: hn
     }, hn);
   });
-  (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(function () {
-    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
-  }, [hostnameSet]);
-  (0,react__WEBPACK_IMPORTED_MODULE_1__.useEffect)(function () {
-    setLastSelectedHostname(hostname);
-    setInputValue(hostname);
-
-    if (hostname.length === 0) {
-      setTextAreaValue('');
-      return;
-    }
-
-    var style = localStorage.getItem(hostname) || '';
-    setTextAreaValue(style);
-  }, [hostname]);
-  var onInputChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
-    setInputValue(event.target.value);
-  }, []);
-  var onTextAreaChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
-    setTextAreaValue(event.target.value);
-  }, []);
-  var onSaveButtonClick = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function () {
-    var newHostname = inputValue;
-
-    if (!hostnameSet[newHostname]) {
-      var newHostnameSet = _objectSpread({}, hostnameSet);
-
-      newHostnameSet[newHostname] = true;
-      setHostnameSet(newHostnameSet);
-    }
-
-    localStorage.setItem(newHostname, textAreaValue);
-    setSaveButtonValue(SAVE_BUTTON_SAVED_VALUE);
-    clearTimeout(saveButtonTimer);
-    setSaveButtonTimer(window.setTimeout(function () {
-      setSaveButtonValue(SAVE_BUTTON_INIT_VALUE);
-    }, 1000));
-    setHostname(newHostname);
-  }, [hostnameSet, inputValue, textAreaValue, saveButtonTimer]);
-  var onSelectChange = (0,react__WEBPACK_IMPORTED_MODULE_1__.useCallback)(function (event) {
-    var selectedOption = event.target.selectedOptions[0];
-    var newHostname = selectedOption.value;
-    setHostname(newHostname);
-  }, []);
   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("div", {
     children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("label", {
         children: ["\u7DE8\u96C6\u3057\u305F\u3044\u4FDD\u5B58\u6E08\u307F\u30C9\u30E1\u30A4\u30F3\u3092\u9078\u3076", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("br", {}), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsxs)("select", {
           id: "hostname-selector",
-          onChange: onSelectChange,
+          onChange: onHostnameSelectChange,
           children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("option", {
             value: "",
             children: "\u9078\u629E..."
@@ -729,14 +744,14 @@ var App = function App() {
           placeholder: "google.com",
           type: "text",
           size: 35,
-          value: inputValue,
-          onChange: onInputChange
+          value: hostnameInputValue,
+          onChange: onHostnameInputChange
         })]
       })
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("div", {
       children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_0__.jsx)("button", {
         id: "save-button",
-        disabled: inputValue.length === 0,
+        disabled: hostnameInputValue.length === 0,
         onClick: onSaveButtonClick,
         children: saveButtonValue
       })
