@@ -1,15 +1,22 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
-/******/ 	var __webpack_modules__ = ({
-
-/***/ 2505:
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-
-// EXPORTS
-__webpack_require__.d(__webpack_exports__, {
-  "j": () => /* binding */ initialize
-});
+/******/ 	// The require scope
+/******/ 	var __webpack_require__ = {};
+/******/ 	
+/************************************************************************/
+/******/ 	/* webpack/runtime/global */
+/******/ 	(() => {
+/******/ 		__webpack_require__.g = (function() {
+/******/ 			if (typeof globalThis === 'object') return globalThis;
+/******/ 			try {
+/******/ 				return this || new Function('return this')();
+/******/ 			} catch (e) {
+/******/ 				if (typeof window === 'object') return window;
+/******/ 			}
+/******/ 		})();
+/******/ 	})();
+/******/ 	
+/************************************************************************/
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/errors.js
 /*---------------------------------------------------------------------------------------------
@@ -4504,7 +4511,7 @@ const _regexp = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
  *       urn:example:animal:ferret:nose
  * ```
  */
-class URI {
+class uri_URI {
     /**
      * @internal
      */
@@ -4529,7 +4536,7 @@ class URI {
         }
     }
     static isUri(thing) {
-        if (thing instanceof URI) {
+        if (thing instanceof uri_URI) {
             return true;
         }
         if (!thing) {
@@ -4694,7 +4701,7 @@ class URI {
         }
         let newPath;
         if (isWindows && uri.scheme === 'file') {
-            newPath = URI.file(win32.join(uriToFsPath(uri, true), ...pathFragment)).path;
+            newPath = uri_URI.file(win32.join(uriToFsPath(uri, true), ...pathFragment)).path;
         }
         else {
             newPath = posix.join(uri.path, ...pathFragment);
@@ -4723,7 +4730,7 @@ class URI {
         if (!data) {
             return data;
         }
-        else if (data instanceof URI) {
+        else if (data instanceof uri_URI) {
             return data;
         }
         else {
@@ -4736,7 +4743,7 @@ class URI {
 }
 const _pathSepMarker = isWindows ? 1 : undefined;
 // This class exists so that URI is compatibile with vscode.Uri (API).
-class Uri extends URI {
+class Uri extends uri_URI {
     constructor() {
         super(...arguments);
         this._formatted = null;
@@ -8778,7 +8785,7 @@ function createMonacoBaseAPI() {
         SelectionDirection: SelectionDirection,
         MarkerSeverity: MarkerSeverity,
         MarkerTag: MarkerTag,
-        Uri: URI,
+        Uri: uri_URI,
         Token: Token
     };
 }
@@ -9004,7 +9011,7 @@ class EditorSimpleWorker {
         return all;
     }
     acceptNewModel(data) {
-        this._models[data.url] = new MirrorModel(URI.parse(data.url), data.lines, data.EOL, data.versionId);
+        this._models[data.url] = new MirrorModel(uri_URI.parse(data.url), data.lines, data.EOL, data.versionId);
     }
     acceptModelChanged(strURL, e) {
         if (!this._models[strURL]) {
@@ -9302,69 +9309,6 @@ self.onmessage = (e) => {
     }
 };
 
-
-/***/ })
-
-/******/ 	});
-/************************************************************************/
-/******/ 	// The module cache
-/******/ 	var __webpack_module_cache__ = {};
-/******/ 	
-/******/ 	// The require function
-/******/ 	function __webpack_require__(moduleId) {
-/******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
-/******/ 		}
-/******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
-/******/ 			exports: {}
-/******/ 		};
-/******/ 	
-/******/ 		// Execute the module function
-/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
-/******/ 	
-/******/ 		// Return the exports of the module
-/******/ 		return module.exports;
-/******/ 	}
-/******/ 	
-/************************************************************************/
-/******/ 	/* webpack/runtime/define property getters */
-/******/ 	(() => {
-/******/ 		// define getter functions for harmony exports
-/******/ 		__webpack_require__.d = (exports, definition) => {
-/******/ 			for(var key in definition) {
-/******/ 				if(__webpack_require__.o(definition, key) && !__webpack_require__.o(exports, key)) {
-/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
-/******/ 				}
-/******/ 			}
-/******/ 		};
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/global */
-/******/ 	(() => {
-/******/ 		__webpack_require__.g = (function() {
-/******/ 			if (typeof globalThis === 'object') return globalThis;
-/******/ 			try {
-/******/ 				return this || new Function('return this')();
-/******/ 			} catch (e) {
-/******/ 				if (typeof window === 'object') return window;
-/******/ 			}
-/******/ 		})();
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
-/******/ 	(() => {
-/******/ 		__webpack_require__.o = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop)
-/******/ 	})();
-/******/ 	
-/************************************************************************/
-(() => {
-
-// EXTERNAL MODULE: ./node_modules/monaco-editor/esm/vs/editor/editor.worker.js + 33 modules
-var editor_worker = __webpack_require__(2505);
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/language/css/_deps/vscode-css-languageservice/parser/cssScanner.js
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -9936,7 +9880,7 @@ var Scanner = /** @class */ (function () {
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-function startsWith(haystack, needle) {
+function strings_startsWith(haystack, needle) {
     if (haystack.length < needle.length) {
         return false;
     }
@@ -9950,7 +9894,7 @@ function startsWith(haystack, needle) {
 /**
  * Determines if haystack ends with needle.
  */
-function endsWith(haystack, needle) {
+function strings_endsWith(haystack, needle) {
     var diff = haystack.length - needle.length;
     if (diff > 0) {
         return haystack.lastIndexOf(needle) === diff;
@@ -10017,7 +9961,7 @@ function getLimitedString(str, ellipsis) {
 /**
  * Limit of string length.
  */
-function trim(str, regexp) {
+function strings_trim(str, regexp) {
     var m = regexp.exec(str);
     if (m && m[0].length) {
         return str.substr(0, str.length - m[0].length);
@@ -10183,7 +10127,7 @@ function getParentDeclaration(node) {
     }
     return null;
 }
-var Node = /** @class */ (function () {
+var cssNodes_Node = /** @class */ (function () {
     function Node(offset, len, nodeType) {
         if (offset === void 0) { offset = -1; }
         if (len === void 0) { len = -1; }
@@ -10415,7 +10359,7 @@ var Nodelist = /** @class */ (function (_super) {
         return _this;
     }
     return Nodelist;
-}(Node));
+}(cssNodes_Node));
 
 var Identifier = /** @class */ (function (_super) {
     __extends(Identifier, _super);
@@ -10435,7 +10379,7 @@ var Identifier = /** @class */ (function (_super) {
         return this.hasChildren();
     };
     return Identifier;
-}(Node));
+}(cssNodes_Node));
 
 var Stylesheet = /** @class */ (function (_super) {
     __extends(Stylesheet, _super);
@@ -10450,7 +10394,7 @@ var Stylesheet = /** @class */ (function (_super) {
         configurable: true
     });
     return Stylesheet;
-}(Node));
+}(cssNodes_Node));
 
 var Declarations = /** @class */ (function (_super) {
     __extends(Declarations, _super);
@@ -10465,7 +10409,7 @@ var Declarations = /** @class */ (function (_super) {
         configurable: true
     });
     return Declarations;
-}(Node));
+}(cssNodes_Node));
 
 var BodyDeclaration = /** @class */ (function (_super) {
     __extends(BodyDeclaration, _super);
@@ -10479,7 +10423,7 @@ var BodyDeclaration = /** @class */ (function (_super) {
         return this.setNode('declarations', decls);
     };
     return BodyDeclaration;
-}(Node));
+}(cssNodes_Node));
 
 var RuleSet = /** @class */ (function (_super) {
     __extends(RuleSet, _super);
@@ -10518,7 +10462,7 @@ var Selector = /** @class */ (function (_super) {
         configurable: true
     });
     return Selector;
-}(Node));
+}(cssNodes_Node));
 
 var SimpleSelector = /** @class */ (function (_super) {
     __extends(SimpleSelector, _super);
@@ -10533,7 +10477,7 @@ var SimpleSelector = /** @class */ (function (_super) {
         configurable: true
     });
     return SimpleSelector;
-}(Node));
+}(cssNodes_Node));
 
 var AtApplyRule = /** @class */ (function (_super) {
     __extends(AtApplyRule, _super);
@@ -10557,7 +10501,7 @@ var AtApplyRule = /** @class */ (function (_super) {
         return this.identifier ? this.identifier.getText() : '';
     };
     return AtApplyRule;
-}(Node));
+}(cssNodes_Node));
 
 var AbstractDeclaration = /** @class */ (function (_super) {
     __extends(AbstractDeclaration, _super);
@@ -10565,7 +10509,7 @@ var AbstractDeclaration = /** @class */ (function (_super) {
         return _super.call(this, offset, length) || this;
     }
     return AbstractDeclaration;
-}(Node));
+}(cssNodes_Node));
 
 var CustomPropertyDeclaration = /** @class */ (function (_super) {
     __extends(CustomPropertyDeclaration, _super);
@@ -10689,13 +10633,13 @@ var Property = /** @class */ (function (_super) {
         return this.identifier;
     };
     Property.prototype.getName = function () {
-        return trim(this.getText(), /[_\+]+$/); /* +_: less merge */
+        return strings_trim(this.getText(), /[_\+]+$/); /* +_: less merge */
     };
     Property.prototype.isCustomProperty = function () {
         return !!this.identifier && this.identifier.isCustomProperty;
     };
     return Property;
-}(Node));
+}(cssNodes_Node));
 
 var Invocation = /** @class */ (function (_super) {
     __extends(Invocation, _super);
@@ -10716,7 +10660,7 @@ var Invocation = /** @class */ (function (_super) {
         return this.arguments;
     };
     return Invocation;
-}(Node));
+}(cssNodes_Node));
 
 var Function = /** @class */ (function (_super) {
     __extends(Function, _super);
@@ -10770,7 +10714,7 @@ var FunctionParameter = /** @class */ (function (_super) {
         return this.defaultValue;
     };
     return FunctionParameter;
-}(Node));
+}(cssNodes_Node));
 
 var FunctionArgument = /** @class */ (function (_super) {
     __extends(FunctionArgument, _super);
@@ -10800,7 +10744,7 @@ var FunctionArgument = /** @class */ (function (_super) {
         return this.value;
     };
     return FunctionArgument;
-}(Node));
+}(cssNodes_Node));
 
 var IfStatement = /** @class */ (function (_super) {
     __extends(IfStatement, _super);
@@ -11032,7 +10976,7 @@ var Import = /** @class */ (function (_super) {
         return false;
     };
     return Import;
-}(Node));
+}(cssNodes_Node));
 
 var Use = /** @class */ (function (_super) {
     __extends(Use, _super);
@@ -11059,7 +11003,7 @@ var Use = /** @class */ (function (_super) {
         return this.identifier;
     };
     return Use;
-}(Node));
+}(cssNodes_Node));
 
 var ModuleConfiguration = /** @class */ (function (_super) {
     __extends(ModuleConfiguration, _super);
@@ -11089,7 +11033,7 @@ var ModuleConfiguration = /** @class */ (function (_super) {
         return this.value;
     };
     return ModuleConfiguration;
-}(Node));
+}(cssNodes_Node));
 
 var Forward = /** @class */ (function (_super) {
     __extends(Forward, _super);
@@ -11110,7 +11054,7 @@ var Forward = /** @class */ (function (_super) {
         return this.identifier;
     };
     return Forward;
-}(Node));
+}(cssNodes_Node));
 
 var ForwardVisibility = /** @class */ (function (_super) {
     __extends(ForwardVisibility, _super);
@@ -11131,7 +11075,7 @@ var ForwardVisibility = /** @class */ (function (_super) {
         return this.identifier;
     };
     return ForwardVisibility;
-}(Node));
+}(cssNodes_Node));
 
 var Namespace = /** @class */ (function (_super) {
     __extends(Namespace, _super);
@@ -11146,7 +11090,7 @@ var Namespace = /** @class */ (function (_super) {
         configurable: true
     });
     return Namespace;
-}(Node));
+}(cssNodes_Node));
 
 var Media = /** @class */ (function (_super) {
     __extends(Media, _super);
@@ -11205,7 +11149,7 @@ var Medialist = /** @class */ (function (_super) {
         return this.mediums;
     };
     return Medialist;
-}(Node));
+}(cssNodes_Node));
 
 var MediaQuery = /** @class */ (function (_super) {
     __extends(MediaQuery, _super);
@@ -11220,7 +11164,7 @@ var MediaQuery = /** @class */ (function (_super) {
         configurable: true
     });
     return MediaQuery;
-}(Node));
+}(cssNodes_Node));
 
 var SupportsCondition = /** @class */ (function (_super) {
     __extends(SupportsCondition, _super);
@@ -11235,7 +11179,7 @@ var SupportsCondition = /** @class */ (function (_super) {
         configurable: true
     });
     return SupportsCondition;
-}(Node));
+}(cssNodes_Node));
 
 var Page = /** @class */ (function (_super) {
     __extends(Page, _super);
@@ -11280,7 +11224,7 @@ var Expression = /** @class */ (function (_super) {
         configurable: true
     });
     return Expression;
-}(Node));
+}(cssNodes_Node));
 
 var BinaryExpression = /** @class */ (function (_super) {
     __extends(BinaryExpression, _super);
@@ -11313,7 +11257,7 @@ var BinaryExpression = /** @class */ (function (_super) {
         return this.operator;
     };
     return BinaryExpression;
-}(Node));
+}(cssNodes_Node));
 
 var Term = /** @class */ (function (_super) {
     __extends(Term, _super);
@@ -11340,7 +11284,7 @@ var Term = /** @class */ (function (_super) {
         return this.expression;
     };
     return Term;
-}(Node));
+}(cssNodes_Node));
 
 var AttributeSelector = /** @class */ (function (_super) {
     __extends(AttributeSelector, _super);
@@ -11379,7 +11323,7 @@ var AttributeSelector = /** @class */ (function (_super) {
         return this.value;
     };
     return AttributeSelector;
-}(Node));
+}(cssNodes_Node));
 
 var Operator = /** @class */ (function (_super) {
     __extends(Operator, _super);
@@ -11394,7 +11338,7 @@ var Operator = /** @class */ (function (_super) {
         configurable: true
     });
     return Operator;
-}(Node));
+}(cssNodes_Node));
 
 var HexColorValue = /** @class */ (function (_super) {
     __extends(HexColorValue, _super);
@@ -11409,7 +11353,7 @@ var HexColorValue = /** @class */ (function (_super) {
         configurable: true
     });
     return HexColorValue;
-}(Node));
+}(cssNodes_Node));
 
 var _dot = '.'.charCodeAt(0), cssNodes_0 = '0'.charCodeAt(0), cssNodes_9 = '9'.charCodeAt(0);
 var NumericValue = /** @class */ (function (_super) {
@@ -11441,7 +11385,7 @@ var NumericValue = /** @class */ (function (_super) {
         };
     };
     return NumericValue;
-}(Node));
+}(cssNodes_Node));
 
 var VariableDeclaration = /** @class */ (function (_super) {
     __extends(VariableDeclaration, _super);
@@ -11501,7 +11445,7 @@ var Interpolation = /** @class */ (function (_super) {
         configurable: true
     });
     return Interpolation;
-}(Node));
+}(cssNodes_Node));
 
 var Variable = /** @class */ (function (_super) {
     __extends(Variable, _super);
@@ -11519,7 +11463,7 @@ var Variable = /** @class */ (function (_super) {
         return this.getText();
     };
     return Variable;
-}(Node));
+}(cssNodes_Node));
 
 var ExtendsReference = /** @class */ (function (_super) {
     __extends(ExtendsReference, _super);
@@ -11540,7 +11484,7 @@ var ExtendsReference = /** @class */ (function (_super) {
         return this.selectors;
     };
     return ExtendsReference;
-}(Node));
+}(cssNodes_Node));
 
 var MixinContentReference = /** @class */ (function (_super) {
     __extends(MixinContentReference, _super);
@@ -11561,7 +11505,7 @@ var MixinContentReference = /** @class */ (function (_super) {
         return this.arguments;
     };
     return MixinContentReference;
-}(Node));
+}(cssNodes_Node));
 
 var MixinContentDeclaration = /** @class */ (function (_super) {
     __extends(MixinContentDeclaration, _super);
@@ -11624,7 +11568,7 @@ var MixinReference = /** @class */ (function (_super) {
         return this.content;
     };
     return MixinReference;
-}(Node));
+}(cssNodes_Node));
 
 var MixinDeclaration = /** @class */ (function (_super) {
     __extends(MixinDeclaration, _super);
@@ -11703,7 +11647,7 @@ var ListEntry = /** @class */ (function (_super) {
         return this.setNode('value', node, 1);
     };
     return ListEntry;
-}(Node));
+}(cssNodes_Node));
 
 var LessGuard = /** @class */ (function (_super) {
     __extends(LessGuard, _super);
@@ -11717,7 +11661,7 @@ var LessGuard = /** @class */ (function (_super) {
         return this.conditions;
     };
     return LessGuard;
-}(Node));
+}(cssNodes_Node));
 
 var GuardCondition = /** @class */ (function (_super) {
     __extends(GuardCondition, _super);
@@ -11728,7 +11672,7 @@ var GuardCondition = /** @class */ (function (_super) {
         return this.setNode('variable', node);
     };
     return GuardCondition;
-}(Node));
+}(cssNodes_Node));
 
 var Module = /** @class */ (function (_super) {
     __extends(Module, _super);
@@ -11749,7 +11693,7 @@ var Module = /** @class */ (function (_super) {
         return this.identifier;
     };
     return Module;
-}(Node));
+}(cssNodes_Node));
 
 var Level;
 (function (Level) {
@@ -11973,7 +11917,7 @@ var ParseErrorCollector = /** @class */ (function () {
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-function format(message, args) {
+function vscode_nls_format(message, args) {
     var result;
     if (args.length === 0) {
         result = message;
@@ -11991,7 +11935,7 @@ function localize(key, message) {
     for (var _i = 2; _i < arguments.length; _i++) {
         args[_i - 2] = arguments[_i];
     }
-    return format(message, args);
+    return vscode_nls_format(message, args);
 }
 function loadMessageBundle(file) {
     return localize;
@@ -12906,7 +12850,7 @@ var Parser = /** @class */ (function () {
         }
     };
     Parser.prototype.createNode = function (nodeType) {
-        return new Node(this.token.offset, this.token.len, nodeType);
+        return new cssNodes_Node(this.token.offset, this.token.len, nodeType);
     };
     Parser.prototype.create = function (ctor) {
         return new ctor(this.token.offset, this.token.len);
@@ -13242,7 +13186,7 @@ var Parser = /** @class */ (function () {
      * of delimitors).
      */
     Parser.prototype._parseCustomPropertyValue = function () {
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         var isTopLevel = function () { return curlyDepth === 0 && parensDepth === 0 && bracketsDepth === 0; };
         var curlyDepth = 0;
         var parensDepth = 0;
@@ -13343,7 +13287,7 @@ var Parser = /** @class */ (function () {
         if (!this.peek(TokenType.Charset)) {
             return null;
         }
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         this.consumeToken(); // charset
         if (!this.accept(TokenType.String)) {
             return this.finish(node, ParseError.IdentifierExpected);
@@ -13409,7 +13353,7 @@ var Parser = /** @class */ (function () {
             return null;
         }
         var node = this.create(Keyframe);
-        var atNode = this.create(Node);
+        var atNode = this.create(cssNodes_Node);
         this.consumeToken(); // atkeyword
         node.setKeyword(this.finish(atNode));
         if (atNode.matches('@-ms-keyframes')) { // -ms-keyframes never existed
@@ -13625,7 +13569,7 @@ var Parser = /** @class */ (function () {
         return this._parseIdent();
     };
     Parser.prototype._parseMedium = function () {
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         if (node.addChild(this._parseIdent())) {
             return this.finish(node);
         }
@@ -13671,7 +13615,7 @@ var Parser = /** @class */ (function () {
         if (!this.peek(TokenType.Ident) && !this.peek(TokenType.Colon)) {
             return null;
         }
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         node.addChild(this._parseIdent()); // optional ident
         if (this.accept(TokenType.Colon)) {
             if (!node.addChild(this._parseIdent())) { // optional ident
@@ -13772,7 +13716,7 @@ var Parser = /** @class */ (function () {
         return node;
     };
     Parser.prototype._parseUnknownAtRuleName = function () {
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         if (this.accept(TokenType.AtKeyword)) {
             return this.finish(node);
         }
@@ -13802,13 +13746,13 @@ var Parser = /** @class */ (function () {
         if (!this.peekDelim('+') && !this.peekDelim('-')) {
             return null;
         }
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         this.consumeToken();
         return this.finish(node);
     };
     Parser.prototype._parseCombinator = function () {
         if (this.peekDelim('>')) {
-            var node = this.create(Node);
+            var node = this.create(cssNodes_Node);
             this.consumeToken();
             var mark = this.mark();
             if (!this.hasWhitespace() && this.acceptDelim('>')) {
@@ -13822,19 +13766,19 @@ var Parser = /** @class */ (function () {
             return this.finish(node);
         }
         else if (this.peekDelim('+')) {
-            var node = this.create(Node);
+            var node = this.create(cssNodes_Node);
             this.consumeToken();
             node.type = NodeType.SelectorCombinatorSibling;
             return this.finish(node);
         }
         else if (this.peekDelim('~')) {
-            var node = this.create(Node);
+            var node = this.create(cssNodes_Node);
             this.consumeToken();
             node.type = NodeType.SelectorCombinatorAllSiblings;
             return this.finish(node);
         }
         else if (this.peekDelim('/')) {
-            var node = this.create(Node);
+            var node = this.create(cssNodes_Node);
             this.consumeToken();
             var mark = this.mark();
             if (!this.hasWhitespace() && this.acceptIdent('deep') && !this.hasWhitespace() && this.acceptDelim('/')) {
@@ -13942,7 +13886,7 @@ var Parser = /** @class */ (function () {
         if (node) {
             if (!this.hasWhitespace() && this.accept(TokenType.ParenthesisL)) {
                 var tryAsSelector = function () {
-                    var selectors = _this.create(Node);
+                    var selectors = _this.create(cssNodes_Node);
                     if (!selectors.addChild(_this._parseSelector(false))) {
                         return null;
                     }
@@ -14077,7 +14021,7 @@ var Parser = /** @class */ (function () {
         if (!this.peek(TokenType.ParenthesisL)) {
             return null;
         }
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         this.consumeToken(); // ParenthesisL
         node.addChild(this._parseExpr());
         if (!this.accept(TokenType.ParenthesisR)) {
@@ -14131,7 +14075,7 @@ var Parser = /** @class */ (function () {
         return this.finish(node);
     };
     Parser.prototype._parseURLArgument = function () {
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         if (!this.accept(TokenType.String) && !this.accept(TokenType.BadString) && !this.acceptUnquotedString()) {
             return null;
         }
@@ -14612,7 +14556,7 @@ var Symbols = /** @class */ (function () {
  * The Position namespace provides helper functions to work with
  * [Position](#Position) literals.
  */
-var Position;
+var main_Position;
 (function (Position) {
     /**
      * Creates a new Position literal from the given line and character.
@@ -14631,18 +14575,18 @@ var Position;
         return Is.objectLiteral(candidate) && Is.number(candidate.line) && Is.number(candidate.character);
     }
     Position.is = is;
-})(Position || (Position = {}));
+})(main_Position || (main_Position = {}));
 /**
  * The Range namespace provides helper functions to work with
  * [Range](#Range) literals.
  */
-var Range;
+var main_Range;
 (function (Range) {
     function create(one, two, three, four) {
         if (Is.number(one) && Is.number(two) && Is.number(three) && Is.number(four)) {
-            return { start: Position.create(one, two), end: Position.create(three, four) };
+            return { start: main_Position.create(one, two), end: main_Position.create(three, four) };
         }
-        else if (Position.is(one) && Position.is(two)) {
+        else if (main_Position.is(one) && main_Position.is(two)) {
             return { start: one, end: two };
         }
         else {
@@ -14655,10 +14599,10 @@ var Range;
      */
     function is(value) {
         var candidate = value;
-        return Is.objectLiteral(candidate) && Position.is(candidate.start) && Position.is(candidate.end);
+        return Is.objectLiteral(candidate) && main_Position.is(candidate.start) && main_Position.is(candidate.end);
     }
     Range.is = is;
-})(Range || (Range = {}));
+})(main_Range || (main_Range = {}));
 /**
  * The Location namespace provides helper functions to work with
  * [Location](#Location) literals.
@@ -14679,7 +14623,7 @@ var Location;
      */
     function is(value) {
         var candidate = value;
-        return Is.defined(candidate) && Range.is(candidate.range) && (Is.string(candidate.uri) || Is.undefined(candidate.uri));
+        return Is.defined(candidate) && main_Range.is(candidate.range) && (Is.string(candidate.uri) || Is.undefined(candidate.uri));
     }
     Location.is = is;
 })(Location || (Location = {}));
@@ -14705,9 +14649,9 @@ var LocationLink;
      */
     function is(value) {
         var candidate = value;
-        return Is.defined(candidate) && Range.is(candidate.targetRange) && Is.string(candidate.targetUri)
-            && (Range.is(candidate.targetSelectionRange) || Is.undefined(candidate.targetSelectionRange))
-            && (Range.is(candidate.originSelectionRange) || Is.undefined(candidate.originSelectionRange));
+        return Is.defined(candidate) && main_Range.is(candidate.targetRange) && Is.string(candidate.targetUri)
+            && (main_Range.is(candidate.targetSelectionRange) || Is.undefined(candidate.targetSelectionRange))
+            && (main_Range.is(candidate.originSelectionRange) || Is.undefined(candidate.originSelectionRange));
     }
     LocationLink.is = is;
 })(LocationLink || (LocationLink = {}));
@@ -14762,7 +14706,7 @@ var ColorInformation;
      */
     function is(value) {
         var candidate = value;
-        return Range.is(candidate.range) && Color.is(candidate.color);
+        return main_Range.is(candidate.range) && Color.is(candidate.color);
     }
     ColorInformation.is = is;
 })(ColorInformation || (ColorInformation = {}));
@@ -14966,7 +14910,7 @@ var Diagnostic;
     function is(value) {
         var candidate = value;
         return Is.defined(candidate)
-            && Range.is(candidate.range)
+            && main_Range.is(candidate.range)
             && Is.string(candidate.message)
             && (Is.number(candidate.severity) || Is.undefined(candidate.severity))
             && (Is.number(candidate.code) || Is.string(candidate.code) || Is.undefined(candidate.code))
@@ -15041,7 +14985,7 @@ var TextEdit;
         var candidate = value;
         return Is.objectLiteral(candidate)
             && Is.string(candidate.newText)
-            && Range.is(candidate.range);
+            && main_Range.is(candidate.range);
     }
     TextEdit.is = is;
 })(TextEdit || (TextEdit = {}));
@@ -15388,7 +15332,7 @@ var MarkupContent;
 /**
  * The kind of a completion entry.
  */
-var CompletionItemKind;
+var main_CompletionItemKind;
 (function (CompletionItemKind) {
     CompletionItemKind.Text = 1;
     CompletionItemKind.Method = 2;
@@ -15415,7 +15359,7 @@ var CompletionItemKind;
     CompletionItemKind.Event = 23;
     CompletionItemKind.Operator = 24;
     CompletionItemKind.TypeParameter = 25;
-})(CompletionItemKind || (CompletionItemKind = {}));
+})(main_CompletionItemKind || (main_CompletionItemKind = {}));
 /**
  * Defines whether the insert text in a completion item should be interpreted as
  * plain text or a snippet.
@@ -15444,13 +15388,13 @@ var InsertTextFormat;
  *
  * @since 3.15.0
  */
-var CompletionItemTag;
+var main_CompletionItemTag;
 (function (CompletionItemTag) {
     /**
      * Render a completion as obsolete, usually using a strike-out.
      */
     CompletionItemTag.Deprecated = 1;
-})(CompletionItemTag || (CompletionItemTag = {}));
+})(main_CompletionItemTag || (main_CompletionItemTag = {}));
 /**
  * The InsertReplaceEdit namespace provides functions to deal with insert / replace edits.
  *
@@ -15470,7 +15414,7 @@ var InsertReplaceEdit;
      */
     function is(value) {
         var candidate = value;
-        return candidate && Is.string(candidate.newText) && Range.is(candidate.insert) && Range.is(candidate.replace);
+        return candidate && Is.string(candidate.newText) && main_Range.is(candidate.insert) && main_Range.is(candidate.replace);
     }
     InsertReplaceEdit.is = is;
 })(InsertReplaceEdit || (InsertReplaceEdit = {}));
@@ -15535,7 +15479,7 @@ var Hover;
         var candidate = value;
         return !!candidate && Is.objectLiteral(candidate) && (MarkupContent.is(candidate.contents) ||
             MarkedString.is(candidate.contents) ||
-            Is.typedArray(candidate.contents, MarkedString.is)) && (value.range === void 0 || Range.is(value.range));
+            Is.typedArray(candidate.contents, MarkedString.is)) && (value.range === void 0 || main_Range.is(value.range));
     }
     Hover.is = is;
 })(Hover || (Hover = {}));
@@ -15584,7 +15528,7 @@ var SignatureInformation;
 /**
  * A document highlight kind.
  */
-var DocumentHighlightKind;
+var main_DocumentHighlightKind;
 (function (DocumentHighlightKind) {
     /**
      * A textual occurrence.
@@ -15598,7 +15542,7 @@ var DocumentHighlightKind;
      * Write-access of a symbol, like writing to a variable.
      */
     DocumentHighlightKind.Write = 3;
-})(DocumentHighlightKind || (DocumentHighlightKind = {}));
+})(main_DocumentHighlightKind || (main_DocumentHighlightKind = {}));
 /**
  * DocumentHighlight namespace to provide helper functions to work with
  * [DocumentHighlight](#DocumentHighlight) literals.
@@ -15621,7 +15565,7 @@ var DocumentHighlight;
 /**
  * A symbol kind.
  */
-var SymbolKind;
+var main_SymbolKind;
 (function (SymbolKind) {
     SymbolKind.File = 1;
     SymbolKind.Module = 2;
@@ -15649,18 +15593,18 @@ var SymbolKind;
     SymbolKind.Event = 24;
     SymbolKind.Operator = 25;
     SymbolKind.TypeParameter = 26;
-})(SymbolKind || (SymbolKind = {}));
+})(main_SymbolKind || (main_SymbolKind = {}));
 /**
  * Symbol tags are extra annotations that tweak the rendering of a symbol.
  * @since 3.15
  */
-var SymbolTag;
+var main_SymbolTag;
 (function (SymbolTag) {
     /**
      * Render a symbol as obsolete, usually using a strike-out.
      */
     SymbolTag.Deprecated = 1;
-})(SymbolTag || (SymbolTag = {}));
+})(main_SymbolTag || (main_SymbolTag = {}));
 var SymbolInformation;
 (function (SymbolInformation) {
     /**
@@ -15718,7 +15662,7 @@ var DocumentSymbol;
         var candidate = value;
         return candidate &&
             Is.string(candidate.name) && Is.number(candidate.kind) &&
-            Range.is(candidate.range) && Range.is(candidate.selectionRange) &&
+            main_Range.is(candidate.range) && main_Range.is(candidate.selectionRange) &&
             (candidate.detail === void 0 || Is.string(candidate.detail)) &&
             (candidate.deprecated === void 0 || Is.boolean(candidate.deprecated)) &&
             (candidate.children === void 0 || Array.isArray(candidate.children)) &&
@@ -15875,7 +15819,7 @@ var CodeLens;
      */
     function is(value) {
         var candidate = value;
-        return Is.defined(candidate) && Range.is(candidate.range) && (Is.undefined(candidate.command) || Command.is(candidate.command));
+        return Is.defined(candidate) && main_Range.is(candidate.range) && (Is.undefined(candidate.command) || Command.is(candidate.command));
     }
     CodeLens.is = is;
 })(CodeLens || (CodeLens = {}));
@@ -15919,7 +15863,7 @@ var DocumentLink;
      */
     function is(value) {
         var candidate = value;
-        return Is.defined(candidate) && Range.is(candidate.range) && (Is.undefined(candidate.target) || Is.string(candidate.target));
+        return Is.defined(candidate) && main_Range.is(candidate.range) && (Is.undefined(candidate.target) || Is.string(candidate.target));
     }
     DocumentLink.is = is;
 })(DocumentLink || (DocumentLink = {}));
@@ -15940,7 +15884,7 @@ var SelectionRange;
     SelectionRange.create = create;
     function is(value) {
         var candidate = value;
-        return candidate !== undefined && Range.is(candidate.range) && (candidate.parent === undefined || SelectionRange.is(candidate.parent));
+        return candidate !== undefined && main_Range.is(candidate.range) && (candidate.parent === undefined || SelectionRange.is(candidate.parent));
     }
     SelectionRange.is = is;
 })(SelectionRange || (SelectionRange = {}));
@@ -16097,7 +16041,7 @@ var FullTextDocument = /** @class */ (function () {
         var lineOffsets = this.getLineOffsets();
         var low = 0, high = lineOffsets.length;
         if (high === 0) {
-            return Position.create(0, offset);
+            return main_Position.create(0, offset);
         }
         while (low < high) {
             var mid = Math.floor((low + high) / 2);
@@ -16111,7 +16055,7 @@ var FullTextDocument = /** @class */ (function () {
         // low is the least x for which the line offset is larger than the current offset
         // or array.length if no line offset is larger than the current offset
         var line = low - 1;
-        return Position.create(line, offset - lineOffsets[line]);
+        return main_Position.create(line, offset - lineOffsets[line]);
     };
     FullTextDocument.prototype.offsetAt = function (position) {
         var lineOffsets = this.getLineOffsets();
@@ -16355,7 +16299,7 @@ var main_TextDocument;
     TextDocument.update = update;
     function applyEdits(document, edits) {
         var text = document.getText();
-        var sortedEdits = mergeSort(edits.map(getWellformedEdit), function (a, b) {
+        var sortedEdits = main_mergeSort(edits.map(getWellformedEdit), function (a, b) {
             var diff = a.range.start.line - b.range.start.line;
             if (diff === 0) {
                 return a.range.start.character - b.range.start.character;
@@ -16383,7 +16327,7 @@ var main_TextDocument;
     }
     TextDocument.applyEdits = applyEdits;
 })(main_TextDocument || (main_TextDocument = {}));
-function mergeSort(data, compare) {
+function main_mergeSort(data, compare) {
     if (data.length <= 1) {
         // sorted
         return data;
@@ -16391,8 +16335,8 @@ function mergeSort(data, compare) {
     var p = (data.length / 2) | 0;
     var left = data.slice(0, p);
     var right = data.slice(p);
-    mergeSort(left, compare);
-    mergeSort(right, compare);
+    main_mergeSort(left, compare);
+    main_mergeSort(right, compare);
     var leftIdx = 0;
     var rightIdx = 0;
     var i = 0;
@@ -16509,44 +16453,44 @@ var vscode_uri_extends = (undefined && undefined.__extends) || (function () {
     };
 })();
 var vscode_uri_a;
-var isWindows;
+var vscode_uri_isWindows;
 if (typeof process === 'object') {
-    isWindows = process.platform === 'win32';
+    vscode_uri_isWindows = process.platform === 'win32';
 }
 else if (typeof navigator === 'object') {
     var userAgent = navigator.userAgent;
-    isWindows = userAgent.indexOf('Windows') >= 0;
+    vscode_uri_isWindows = userAgent.indexOf('Windows') >= 0;
 }
-function isHighSurrogate(charCode) {
+function vscode_uri_isHighSurrogate(charCode) {
     return (0xD800 <= charCode && charCode <= 0xDBFF);
 }
-function isLowSurrogate(charCode) {
+function vscode_uri_isLowSurrogate(charCode) {
     return (0xDC00 <= charCode && charCode <= 0xDFFF);
 }
 function isLowerAsciiHex(code) {
     return code >= 97 /* a */ && code <= 102 /* f */;
 }
-function isLowerAsciiLetter(code) {
+function vscode_uri_isLowerAsciiLetter(code) {
     return code >= 97 /* a */ && code <= 122 /* z */;
 }
-function isUpperAsciiLetter(code) {
+function vscode_uri_isUpperAsciiLetter(code) {
     return code >= 65 /* A */ && code <= 90 /* Z */;
 }
-function isAsciiLetter(code) {
-    return isLowerAsciiLetter(code) || isUpperAsciiLetter(code);
+function vscode_uri_isAsciiLetter(code) {
+    return vscode_uri_isLowerAsciiLetter(code) || vscode_uri_isUpperAsciiLetter(code);
 }
 //#endregion
-var _schemePattern = /^\w[\w\d+.-]*$/;
-var _singleSlashStart = /^\//;
-var _doubleSlashStart = /^\/\//;
-function _validateUri(ret, _strict) {
+var vscode_uri_schemePattern = /^\w[\w\d+.-]*$/;
+var vscode_uri_singleSlashStart = /^\//;
+var vscode_uri_doubleSlashStart = /^\/\//;
+function vscode_uri_validateUri(ret, _strict) {
     // scheme, must be set
     if (!ret.scheme && _strict) {
         throw new Error("[UriError]: Scheme is missing: {scheme: \"\", authority: \"" + ret.authority + "\", path: \"" + ret.path + "\", query: \"" + ret.query + "\", fragment: \"" + ret.fragment + "\"}");
     }
     // scheme, https://tools.ietf.org/html/rfc3986#section-3.1
     // ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
-    if (ret.scheme && !_schemePattern.test(ret.scheme)) {
+    if (ret.scheme && !vscode_uri_schemePattern.test(ret.scheme)) {
         throw new Error('[UriError]: Scheme contains illegal characters.');
     }
     // path, http://tools.ietf.org/html/rfc3986#section-3.3
@@ -16556,12 +16500,12 @@ function _validateUri(ret, _strict) {
     // with two slash characters ("//").
     if (ret.path) {
         if (ret.authority) {
-            if (!_singleSlashStart.test(ret.path)) {
+            if (!vscode_uri_singleSlashStart.test(ret.path)) {
                 throw new Error('[UriError]: If a URI contains an authority component, then the path component must either be empty or begin with a slash ("/") character');
             }
         }
         else {
-            if (_doubleSlashStart.test(ret.path)) {
+            if (vscode_uri_doubleSlashStart.test(ret.path)) {
                 throw new Error('[UriError]: If a URI does not contain an authority component, then the path cannot begin with two slash characters ("//")');
             }
         }
@@ -16571,14 +16515,14 @@ function _validateUri(ret, _strict) {
 // for them, e.g. an uri without scheme and without strict-mode warns and falls
 // back to the file-scheme. that should cause the least carnage and still be a
 // clear warning
-function _schemeFix(scheme, _strict) {
+function vscode_uri_schemeFix(scheme, _strict) {
     if (!scheme && !_strict) {
         return 'file';
     }
     return scheme;
 }
 // implements a bit of https://tools.ietf.org/html/rfc3986#section-5
-function _referenceResolution(scheme, path) {
+function vscode_uri_referenceResolution(scheme, path) {
     // the slash-character is our 'default base' as we don't
     // support constructing URIs relative to other URIs. This
     // also means that we alter and potentially break paths.
@@ -16588,18 +16532,18 @@ function _referenceResolution(scheme, path) {
         case 'http':
         case 'file':
             if (!path) {
-                path = _slash;
+                path = vscode_uri_slash;
             }
-            else if (path[0] !== _slash) {
-                path = _slash + path;
+            else if (path[0] !== vscode_uri_slash) {
+                path = vscode_uri_slash + path;
             }
             break;
     }
     return path;
 }
-var _empty = '';
-var _slash = '/';
-var _regexp = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
+var vscode_uri_empty = '';
+var vscode_uri_slash = '/';
+var vscode_uri_regexp = /^(([^:/?#]+?):)?(\/\/([^/?#]*))?([^?#]*)(\?([^#]*))?(#(.*))?/;
 /**
  * Uniform Resource Identifier (URI) http://tools.ietf.org/html/rfc3986.
  * This class is a simple parser which creates the basic component parts
@@ -16623,22 +16567,22 @@ var vscode_uri_URI = /** @class */ (function () {
     function URI(schemeOrData, authority, path, query, fragment, _strict) {
         if (_strict === void 0) { _strict = false; }
         if (typeof schemeOrData === 'object') {
-            this.scheme = schemeOrData.scheme || _empty;
-            this.authority = schemeOrData.authority || _empty;
-            this.path = schemeOrData.path || _empty;
-            this.query = schemeOrData.query || _empty;
-            this.fragment = schemeOrData.fragment || _empty;
+            this.scheme = schemeOrData.scheme || vscode_uri_empty;
+            this.authority = schemeOrData.authority || vscode_uri_empty;
+            this.path = schemeOrData.path || vscode_uri_empty;
+            this.query = schemeOrData.query || vscode_uri_empty;
+            this.fragment = schemeOrData.fragment || vscode_uri_empty;
             // no validation because it's this URI
             // that creates uri components.
             // _validateUri(this);
         }
         else {
-            this.scheme = _schemeFix(schemeOrData, _strict);
-            this.authority = authority || _empty;
-            this.path = _referenceResolution(this.scheme, path || _empty);
-            this.query = query || _empty;
-            this.fragment = fragment || _empty;
-            _validateUri(this, _strict);
+            this.scheme = vscode_uri_schemeFix(schemeOrData, _strict);
+            this.authority = authority || vscode_uri_empty;
+            this.path = vscode_uri_referenceResolution(this.scheme, path || vscode_uri_empty);
+            this.query = query || vscode_uri_empty;
+            this.fragment = fragment || vscode_uri_empty;
+            vscode_uri_validateUri(this, _strict);
         }
     }
     URI.isUri = function (thing) {
@@ -16687,7 +16631,7 @@ var vscode_uri_URI = /** @class */ (function () {
             // if (this.scheme !== 'file') {
             // 	console.warn(`[UriError] calling fsPath with scheme ${this.scheme}`);
             // }
-            return uriToFsPath(this, false);
+            return vscode_uri_uriToFsPath(this, false);
         },
         enumerable: true,
         configurable: true
@@ -16702,31 +16646,31 @@ var vscode_uri_URI = /** @class */ (function () {
             scheme = this.scheme;
         }
         else if (scheme === null) {
-            scheme = _empty;
+            scheme = vscode_uri_empty;
         }
         if (authority === undefined) {
             authority = this.authority;
         }
         else if (authority === null) {
-            authority = _empty;
+            authority = vscode_uri_empty;
         }
         if (path === undefined) {
             path = this.path;
         }
         else if (path === null) {
-            path = _empty;
+            path = vscode_uri_empty;
         }
         if (query === undefined) {
             query = this.query;
         }
         else if (query === null) {
-            query = _empty;
+            query = vscode_uri_empty;
         }
         if (fragment === undefined) {
             fragment = this.fragment;
         }
         else if (fragment === null) {
-            fragment = _empty;
+            fragment = vscode_uri_empty;
         }
         if (scheme === this.scheme
             && authority === this.authority
@@ -16746,11 +16690,11 @@ var vscode_uri_URI = /** @class */ (function () {
      */
     URI.parse = function (value, _strict) {
         if (_strict === void 0) { _strict = false; }
-        var match = _regexp.exec(value);
+        var match = vscode_uri_regexp.exec(value);
         if (!match) {
-            return new _URI(_empty, _empty, _empty, _empty, _empty);
+            return new _URI(vscode_uri_empty, vscode_uri_empty, vscode_uri_empty, vscode_uri_empty, vscode_uri_empty);
         }
-        return new _URI(match[2] || _empty, percentDecode(match[4] || _empty), percentDecode(match[5] || _empty), percentDecode(match[7] || _empty), percentDecode(match[9] || _empty), _strict);
+        return new _URI(match[2] || vscode_uri_empty, vscode_uri_percentDecode(match[4] || vscode_uri_empty), vscode_uri_percentDecode(match[5] || vscode_uri_empty), vscode_uri_percentDecode(match[7] || vscode_uri_empty), vscode_uri_percentDecode(match[9] || vscode_uri_empty), _strict);
     };
     /**
      * Creates a new URI from a file system path, e.g. `c:\my\files`,
@@ -16774,27 +16718,27 @@ var vscode_uri_URI = /** @class */ (function () {
      * @param path A file system path (see `URI#fsPath`)
      */
     URI.file = function (path) {
-        var authority = _empty;
+        var authority = vscode_uri_empty;
         // normalize to fwd-slashes on windows,
         // on other systems bwd-slashes are valid
         // filename character, eg /f\oo/ba\r.txt
-        if (isWindows) {
-            path = path.replace(/\\/g, _slash);
+        if (vscode_uri_isWindows) {
+            path = path.replace(/\\/g, vscode_uri_slash);
         }
         // check for authority as used in UNC shares
         // or use the path as given
-        if (path[0] === _slash && path[1] === _slash) {
-            var idx = path.indexOf(_slash, 2);
+        if (path[0] === vscode_uri_slash && path[1] === vscode_uri_slash) {
+            var idx = path.indexOf(vscode_uri_slash, 2);
             if (idx === -1) {
                 authority = path.substring(2);
-                path = _slash;
+                path = vscode_uri_slash;
             }
             else {
                 authority = path.substring(2, idx);
-                path = path.substring(idx) || _slash;
+                path = path.substring(idx) || vscode_uri_slash;
             }
         }
-        return new _URI('file', authority, path, _empty, _empty);
+        return new _URI('file', authority, path, vscode_uri_empty, vscode_uri_empty);
     };
     URI.from = function (components) {
         return new _URI(components.scheme, components.authority, components.path, components.query, components.fragment);
@@ -16832,7 +16776,7 @@ var vscode_uri_URI = /** @class */ (function () {
      */
     URI.prototype.toString = function (skipEncoding) {
         if (skipEncoding === void 0) { skipEncoding = false; }
-        return _asFormatted(this, skipEncoding);
+        return vscode_uri_asFormatted(this, skipEncoding);
     };
     URI.prototype.toJSON = function () {
         return this;
@@ -16847,14 +16791,14 @@ var vscode_uri_URI = /** @class */ (function () {
         else {
             var result = new _URI(data);
             result._formatted = data.external;
-            result._fsPath = data._sep === _pathSepMarker ? data.fsPath : null;
+            result._fsPath = data._sep === vscode_uri_pathSepMarker ? data.fsPath : null;
             return result;
         }
     };
     return URI;
 }());
 
-var _pathSepMarker = isWindows ? 1 : undefined;
+var vscode_uri_pathSepMarker = vscode_uri_isWindows ? 1 : undefined;
 // eslint-disable-next-line @typescript-eslint/class-name-casing
 var _URI = /** @class */ (function (_super) {
     vscode_uri_extends(_URI, _super);
@@ -16867,7 +16811,7 @@ var _URI = /** @class */ (function (_super) {
     Object.defineProperty(_URI.prototype, "fsPath", {
         get: function () {
             if (!this._fsPath) {
-                this._fsPath = uriToFsPath(this, false);
+                this._fsPath = vscode_uri_uriToFsPath(this, false);
             }
             return this._fsPath;
         },
@@ -16878,13 +16822,13 @@ var _URI = /** @class */ (function (_super) {
         if (skipEncoding === void 0) { skipEncoding = false; }
         if (!skipEncoding) {
             if (!this._formatted) {
-                this._formatted = _asFormatted(this, false);
+                this._formatted = vscode_uri_asFormatted(this, false);
             }
             return this._formatted;
         }
         else {
             // we don't cache that
-            return _asFormatted(this, true);
+            return vscode_uri_asFormatted(this, true);
         }
     };
     _URI.prototype.toJSON = function () {
@@ -16894,7 +16838,7 @@ var _URI = /** @class */ (function (_super) {
         // cached state
         if (this._fsPath) {
             res.fsPath = this._fsPath;
-            res._sep = _pathSepMarker;
+            res._sep = vscode_uri_pathSepMarker;
         }
         if (this._formatted) {
             res.external = this._formatted;
@@ -16920,7 +16864,7 @@ var _URI = /** @class */ (function (_super) {
     return _URI;
 }(vscode_uri_URI));
 // reserved characters: https://tools.ietf.org/html/rfc3986#section-2.2
-var encodeTable = (vscode_uri_a = {},
+var vscode_uri_encodeTable = (vscode_uri_a = {},
     vscode_uri_a[58 /* Colon */] = '%3A',
     vscode_uri_a[47 /* Slash */] = '%2F',
     vscode_uri_a[63 /* QuestionMark */] = '%3F',
@@ -16941,7 +16885,7 @@ var encodeTable = (vscode_uri_a = {},
     vscode_uri_a[61 /* Equals */] = '%3D',
     vscode_uri_a[32 /* Space */] = '%20',
     vscode_uri_a);
-function encodeURIComponentFast(uriComponent, allowSlash) {
+function vscode_uri_encodeURIComponentFast(uriComponent, allowSlash) {
     var res = undefined;
     var nativeEncodePos = -1;
     for (var pos = 0; pos < uriComponent.length; pos++) {
@@ -16971,7 +16915,7 @@ function encodeURIComponentFast(uriComponent, allowSlash) {
                 res = uriComponent.substr(0, pos);
             }
             // check with default table first
-            var escaped = encodeTable[code];
+            var escaped = vscode_uri_encodeTable[code];
             if (escaped !== undefined) {
                 // check if we are delaying native encode
                 if (nativeEncodePos !== -1) {
@@ -16992,7 +16936,7 @@ function encodeURIComponentFast(uriComponent, allowSlash) {
     }
     return res !== undefined ? res : uriComponent;
 }
-function encodeURIComponentMinimal(path) {
+function vscode_uri_encodeURIComponentMinimal(path) {
     var res = undefined;
     for (var pos = 0; pos < path.length; pos++) {
         var code = path.charCodeAt(pos);
@@ -17000,7 +16944,7 @@ function encodeURIComponentMinimal(path) {
             if (res === undefined) {
                 res = path.substr(0, pos);
             }
-            res += encodeTable[code];
+            res += vscode_uri_encodeTable[code];
         }
         else {
             if (res !== undefined) {
@@ -17013,7 +16957,7 @@ function encodeURIComponentMinimal(path) {
 /**
  * Compute `fsPath` for the given uri
  */
-function uriToFsPath(uri, keepDriveLetterCasing) {
+function vscode_uri_uriToFsPath(uri, keepDriveLetterCasing) {
     var value;
     if (uri.authority && uri.path.length > 1 && uri.scheme === 'file') {
         // unc path: file://shares/c$/far/boo
@@ -17034,7 +16978,7 @@ function uriToFsPath(uri, keepDriveLetterCasing) {
         // other path
         value = uri.path;
     }
-    if (isWindows) {
+    if (vscode_uri_isWindows) {
         value = value.replace(/\//g, '\\');
     }
     return value;
@@ -17042,10 +16986,10 @@ function uriToFsPath(uri, keepDriveLetterCasing) {
 /**
  * Create the external version of a uri
  */
-function _asFormatted(uri, skipEncoding) {
+function vscode_uri_asFormatted(uri, skipEncoding) {
     var encoder = !skipEncoding
-        ? encodeURIComponentFast
-        : encodeURIComponentMinimal;
+        ? vscode_uri_encodeURIComponentFast
+        : vscode_uri_encodeURIComponentMinimal;
     var res = '';
     var scheme = uri.scheme, authority = uri.authority, path = uri.path, query = uri.query, fragment = uri.fragment;
     if (scheme) {
@@ -17053,8 +16997,8 @@ function _asFormatted(uri, skipEncoding) {
         res += ':';
     }
     if (authority || scheme === 'file') {
-        res += _slash;
-        res += _slash;
+        res += vscode_uri_slash;
+        res += vscode_uri_slash;
     }
     if (authority) {
         var idx = authority.indexOf('@');
@@ -17108,30 +17052,30 @@ function _asFormatted(uri, skipEncoding) {
     }
     if (fragment) {
         res += '#';
-        res += !skipEncoding ? encodeURIComponentFast(fragment, false) : fragment;
+        res += !skipEncoding ? vscode_uri_encodeURIComponentFast(fragment, false) : fragment;
     }
     return res;
 }
 // --- decode
-function decodeURIComponentGraceful(str) {
+function vscode_uri_decodeURIComponentGraceful(str) {
     try {
         return decodeURIComponent(str);
     }
     catch (_a) {
         if (str.length > 3) {
-            return str.substr(0, 3) + decodeURIComponentGraceful(str.substr(3));
+            return str.substr(0, 3) + vscode_uri_decodeURIComponentGraceful(str.substr(3));
         }
         else {
             return str;
         }
     }
 }
-var _rEncodedAsHex = /(%[0-9A-Za-z][0-9A-Za-z])+/g;
-function percentDecode(str) {
-    if (!str.match(_rEncodedAsHex)) {
+var vscode_uri_rEncodedAsHex = /(%[0-9A-Za-z][0-9A-Za-z])+/g;
+function vscode_uri_percentDecode(str) {
+    if (!str.match(vscode_uri_rEncodedAsHex)) {
         return str;
     }
-    return str.replace(_rEncodedAsHex, function (match) { return decodeURIComponentGraceful(match); });
+    return str.replace(vscode_uri_rEncodedAsHex, function (match) { return vscode_uri_decodeURIComponentGraceful(match); });
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/language/css/_deps/vscode-css-languageservice/utils/resources.js
@@ -17145,15 +17089,15 @@ var Dot = '.'.charCodeAt(0);
 function isAbsolutePath(path) {
     return path.charCodeAt(0) === Slash;
 }
-function dirname(uri) {
+function resources_dirname(uri) {
     var lastIndexOfSlash = uri.lastIndexOf('/');
     return lastIndexOfSlash !== -1 ? uri.substr(0, lastIndexOfSlash) : '';
 }
-function basename(uri) {
+function resources_basename(uri) {
     var lastIndexOfSlash = uri.lastIndexOf('/');
     return uri.substr(lastIndexOfSlash + 1);
 }
-function extname(uri) {
+function resources_extname(uri) {
     for (var i = uri.length - 1; i >= 0; i--) {
         var ch = uri.charCodeAt(i);
         if (ch === Dot) {
@@ -17220,7 +17164,7 @@ function joinPath(uriString) {
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+var pathCompletion_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -17272,7 +17216,7 @@ var PathCompletionParticipant = /** @class */ (function () {
         this.importCompletions.push(context);
     };
     PathCompletionParticipant.prototype.computeCompletions = function (document, documentContext) {
-        return __awaiter(this, void 0, void 0, function () {
+        return pathCompletion_awaiter(this, void 0, void 0, function () {
             var result, _i, _a, literalCompletion, uriValue, fullValue, items, _b, items_1, item, _c, _d, importCompletion, pathValue, fullValue, suggestions, _e, suggestions_1, item;
             return __generator(this, function (_f) {
                 switch (_f.label) {
@@ -17315,7 +17259,7 @@ var PathCompletionParticipant = /** @class */ (function () {
                         suggestions = _f.sent();
                         if (document.languageId === 'scss') {
                             suggestions.forEach(function (s) {
-                                if (startsWith(s.label, '_') && endsWith(s.label, '.scss')) {
+                                if (strings_startsWith(s.label, '_') && strings_endsWith(s.label, '.scss')) {
                                     if (s.textEdit) {
                                         s.textEdit.newText = s.label.slice(1, -5);
                                     }
@@ -17339,13 +17283,13 @@ var PathCompletionParticipant = /** @class */ (function () {
         });
     };
     PathCompletionParticipant.prototype.providePathSuggestions = function (pathValue, position, range, document, documentContext) {
-        return __awaiter(this, void 0, void 0, function () {
+        return pathCompletion_awaiter(this, void 0, void 0, function () {
             var fullValue, isValueQuoted, valueBeforeCursor, currentDocUri, fullValueRange, replaceRange, valueBeforeLastSlash, parentDir, result, infos, _i, infos_1, _a, name, type, e_1;
             return __generator(this, function (_b) {
                 switch (_b.label) {
                     case 0:
                         fullValue = stripQuotes(pathValue);
-                        isValueQuoted = startsWith(pathValue, "'") || startsWith(pathValue, "\"");
+                        isValueQuoted = strings_startsWith(pathValue, "'") || strings_startsWith(pathValue, "\"");
                         valueBeforeCursor = isValueQuoted
                             ? fullValue.slice(0, position.character - (range.start.character + 1))
                             : fullValue.slice(0, position.character - range.start.character);
@@ -17383,7 +17327,7 @@ var PathCompletionParticipant = /** @class */ (function () {
 
 var CharCode_dot = '.'.charCodeAt(0);
 function stripQuotes(fullValue) {
-    if (startsWith(fullValue, "'") || startsWith(fullValue, "\"")) {
+    if (strings_startsWith(fullValue, "'") || strings_startsWith(fullValue, "\"")) {
         return fullValue.slice(1, -1);
     }
     else {
@@ -17410,7 +17354,7 @@ function pathToReplaceRange(valueBeforeCursor, fullValue, fullValueRange) {
         else {
             endPos = fullValueRange.end;
         }
-        replaceRange = Range.create(startPos, endPos);
+        replaceRange = main_Range.create(startPos, endPos);
     }
     return replaceRange;
 }
@@ -17419,7 +17363,7 @@ function createCompletionItem(name, isDir, replaceRange) {
         name = name + '/';
         return {
             label: escapePath(name),
-            kind: CompletionItemKind.Folder,
+            kind: main_CompletionItemKind.Folder,
             textEdit: TextEdit.replace(replaceRange, escapePath(name)),
             command: {
                 title: 'Suggest',
@@ -17430,7 +17374,7 @@ function createCompletionItem(name, isDir, replaceRange) {
     else {
         return {
             label: escapePath(name),
-            kind: CompletionItemKind.File,
+            kind: main_CompletionItemKind.File,
             textEdit: TextEdit.replace(replaceRange, escapePath(name))
         };
     }
@@ -17440,12 +17384,12 @@ function escapePath(p) {
     return p.replace(/(\s|\(|\)|,|"|')/g, '\\$1');
 }
 function shiftPosition(pos, offset) {
-    return Position.create(pos.line, pos.character + offset);
+    return main_Position.create(pos.line, pos.character + offset);
 }
 function shiftRange(range, startOffset, endOffset) {
     var start = shiftPosition(range.start, startOffset);
     var end = shiftPosition(range.end, endOffset);
-    return Range.create(start, end);
+    return main_Range.create(start, end);
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/language/css/_deps/vscode-css-languageservice/services/cssCompletion.js
@@ -17564,7 +17508,7 @@ var CSSCompletion = /** @class */ (function () {
         this.offset = document.offsetAt(position);
         this.position = position;
         this.currentWord = getCurrentWord(document, this.offset);
-        this.defaultReplaceRange = Range.create(Position.create(this.position.line, this.position.character - this.currentWord.length), this.position);
+        this.defaultReplaceRange = main_Range.create(main_Position.create(this.position.line, this.position.character - this.currentWord.length), this.position);
         this.textDocument = document;
         this.styleSheet = styleSheet;
         try {
@@ -17722,10 +17666,10 @@ var CSSCompletion = /** @class */ (function () {
             var item = {
                 label: entry.name,
                 documentation: getEntryDescription(entry, _this.doesSupportMarkdown()),
-                tags: isDeprecated(entry) ? [CompletionItemTag.Deprecated] : [],
+                tags: isDeprecated(entry) ? [main_CompletionItemTag.Deprecated] : [],
                 textEdit: TextEdit.replace(range, insertText),
                 insertTextFormat: InsertTextFormat.Snippet,
-                kind: CompletionItemKind.Property
+                kind: main_CompletionItemKind.Property
             };
             if (!entry.restrictions) {
                 retrigger = false;
@@ -17738,7 +17682,7 @@ var CSSCompletion = /** @class */ (function () {
             }
             var relevance = typeof entry.relevance === 'number' ? Math.min(Math.max(entry.relevance, 0), 99) : 50;
             var sortTextSuffix = (255 - relevance).toString(16);
-            var sortTextPrefix = startsWith(entry.name, '-') ? SortTexts.VendorPrefixed : SortTexts.Normal;
+            var sortTextPrefix = strings_startsWith(entry.name, '-') ? SortTexts.VendorPrefixed : SortTexts.Normal;
             item.sortText = sortTextPrefix + '_' + sortTextSuffix;
             result.items.push(item);
         });
@@ -17842,7 +17786,7 @@ var CSSCompletion = /** @class */ (function () {
                 result.items.push({
                     label: existingValue,
                     textEdit: TextEdit.replace(this.getCompletionRange(existingNode), existingValue),
-                    kind: CompletionItemKind.Value
+                    kind: main_CompletionItemKind.Value
                 });
             }
         }
@@ -17856,7 +17800,7 @@ var CSSCompletion = /** @class */ (function () {
                 var value = _a[_i];
                 var insertString = value.name;
                 var insertTextFormat = void 0;
-                if (endsWith(insertString, ')')) {
+                if (strings_endsWith(insertString, ')')) {
                     var from = insertString.lastIndexOf('(');
                     if (from !== -1) {
                         insertString = insertString.substr(0, from) + '($1)';
@@ -17864,16 +17808,16 @@ var CSSCompletion = /** @class */ (function () {
                     }
                 }
                 var sortText = SortTexts.Enums;
-                if (startsWith(value.name, '-')) {
+                if (strings_startsWith(value.name, '-')) {
                     sortText += SortTexts.VendorPrefixed;
                 }
                 var item = {
                     label: value.name,
                     documentation: getEntryDescription(value, this.doesSupportMarkdown()),
-                    tags: isDeprecated(entry) ? [CompletionItemTag.Deprecated] : [],
+                    tags: isDeprecated(entry) ? [main_CompletionItemTag.Deprecated] : [],
                     textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertString),
                     sortText: sortText,
-                    kind: CompletionItemKind.Value,
+                    kind: main_CompletionItemKind.Value,
                     insertTextFormat: insertTextFormat
                 };
                 result.items.push(item);
@@ -17887,7 +17831,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: keywords,
                 documentation: cssWideKeywords[keywords],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), keywords),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -17902,16 +17846,16 @@ var CSSCompletion = /** @class */ (function () {
         var symbols = this.getSymbolContext().findSymbolsAtOffset(this.offset, ReferenceType.Variable);
         for (var _i = 0, symbols_1 = symbols; _i < symbols_1.length; _i++) {
             var symbol = symbols_1[_i];
-            var insertText = startsWith(symbol.name, '--') ? "var(" + symbol.name + ")" : symbol.name;
+            var insertText = strings_startsWith(symbol.name, '--') ? "var(" + symbol.name + ")" : symbol.name;
             var completionItem = {
                 label: symbol.name,
                 documentation: symbol.value ? getLimitedString(symbol.value) : symbol.value,
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
-                kind: CompletionItemKind.Variable,
+                kind: main_CompletionItemKind.Variable,
                 sortText: SortTexts.Variable
             };
             if (typeof completionItem.documentation === 'string' && isColorString(completionItem.documentation)) {
-                completionItem.kind = CompletionItemKind.Color;
+                completionItem.kind = main_CompletionItemKind.Color;
             }
             if (symbol.node.type === NodeType.FunctionParameter) {
                 var mixinNode = (symbol.node.getParent());
@@ -17926,7 +17870,7 @@ var CSSCompletion = /** @class */ (function () {
     CSSCompletion.prototype.getVariableProposalsForCSSVarFunction = function (result) {
         var symbols = this.getSymbolContext().findSymbolsAtOffset(this.offset, ReferenceType.Variable);
         symbols = symbols.filter(function (symbol) {
-            return startsWith(symbol.name, '--');
+            return strings_startsWith(symbol.name, '--');
         });
         for (var _i = 0, symbols_2 = symbols; _i < symbols_2.length; _i++) {
             var symbol = symbols_2[_i];
@@ -17934,10 +17878,10 @@ var CSSCompletion = /** @class */ (function () {
                 label: symbol.name,
                 documentation: symbol.value ? getLimitedString(symbol.value) : symbol.value,
                 textEdit: TextEdit.replace(this.getCompletionRange(null), symbol.name),
-                kind: CompletionItemKind.Variable
+                kind: main_CompletionItemKind.Variable
             };
             if (typeof completionItem.documentation === 'string' && isColorString(completionItem.documentation)) {
-                completionItem.kind = CompletionItemKind.Color;
+                completionItem.kind = main_CompletionItemKind.Color;
             }
             result.items.push(completionItem);
         }
@@ -17969,7 +17913,7 @@ var CSSCompletion = /** @class */ (function () {
                         result.items.push({
                             label: insertText,
                             textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
-                            kind: CompletionItemKind.Unit
+                            kind: main_CompletionItemKind.Unit
                         });
                     }
                 }
@@ -17982,7 +17926,7 @@ var CSSCompletion = /** @class */ (function () {
             var end = existingNode.end !== -1 ? this.textDocument.positionAt(existingNode.end) : this.position;
             var start = this.textDocument.positionAt(existingNode.offset);
             if (start.line === end.line) {
-                return Range.create(start, end); // multi line edits are not allowed
+                return main_Range.create(start, end); // multi line edits are not allowed
             }
         }
         return this.defaultReplaceRange;
@@ -17993,7 +17937,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: color,
                 documentation: colors[color],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), color),
-                kind: CompletionItemKind.Color
+                kind: main_CompletionItemKind.Color
             });
         }
         for (var color in colorKeywords) {
@@ -18001,17 +17945,17 @@ var CSSCompletion = /** @class */ (function () {
                 label: color,
                 documentation: colorKeywords[color],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), color),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
-        var colorValues = new Set();
+        var colorValues = new cssCompletion_Set();
         this.styleSheet.acceptVisitor(new ColorValueCollector(colorValues, this.offset));
         for (var _i = 0, _a = colorValues.getEntries(); _i < _a.length; _i++) {
             var color = _a[_i];
             result.items.push({
                 label: color,
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), color),
-                kind: CompletionItemKind.Color
+                kind: main_CompletionItemKind.Color
             });
         }
         var _loop_1 = function (p) {
@@ -18024,7 +17968,7 @@ var CSSCompletion = /** @class */ (function () {
                 documentation: p.desc,
                 textEdit: TextEdit.replace(this_1.getCompletionRange(existingNode), insertText),
                 insertTextFormat: SnippetFormat,
-                kind: CompletionItemKind.Function
+                kind: main_CompletionItemKind.Function
             });
         };
         var this_1 = this;
@@ -18040,7 +17984,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: position,
                 documentation: positionKeywords[position],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), position),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -18051,7 +17995,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: repeat,
                 documentation: repeatStyleKeywords[repeat],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), repeat),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -18062,7 +18006,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: lineStyle,
                 documentation: lineStyleKeywords[lineStyle],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), lineStyle),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -18073,7 +18017,7 @@ var CSSCompletion = /** @class */ (function () {
             result.items.push({
                 label: lineWidth,
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), lineWidth),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -18084,7 +18028,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: box,
                 documentation: geometryBoxKeywords[box],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), box),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -18095,7 +18039,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: box,
                 documentation: boxKeywords[box],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), box),
-                kind: CompletionItemKind.Value
+                kind: main_CompletionItemKind.Value
             });
         }
         return result;
@@ -18107,7 +18051,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: image,
                 documentation: imageFunctions[image],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
-                kind: CompletionItemKind.Function,
+                kind: main_CompletionItemKind.Function,
                 insertTextFormat: image !== insertText ? SnippetFormat : void 0
             });
         }
@@ -18120,7 +18064,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: timing,
                 documentation: transitionTimingFunctions[timing],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
-                kind: CompletionItemKind.Function,
+                kind: main_CompletionItemKind.Function,
                 insertTextFormat: timing !== insertText ? SnippetFormat : void 0
             });
         }
@@ -18133,7 +18077,7 @@ var CSSCompletion = /** @class */ (function () {
                 label: shape,
                 documentation: basicShapeFunctions[shape],
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
-                kind: CompletionItemKind.Function,
+                kind: main_CompletionItemKind.Function,
                 insertTextFormat: shape !== insertText ? SnippetFormat : void 0
             });
         }
@@ -18159,8 +18103,8 @@ var CSSCompletion = /** @class */ (function () {
                 label: entry.name,
                 textEdit: TextEdit.replace(_this.getCompletionRange(null), entry.name),
                 documentation: getEntryDescription(entry, _this.doesSupportMarkdown()),
-                tags: isDeprecated(entry) ? [CompletionItemTag.Deprecated] : [],
-                kind: CompletionItemKind.Keyword
+                tags: isDeprecated(entry) ? [main_CompletionItemTag.Deprecated] : [],
+                kind: main_CompletionItemKind.Keyword
             });
         });
         this.getCompletionsForSelector(null, false, result);
@@ -18184,7 +18128,7 @@ var CSSCompletion = /** @class */ (function () {
         if (!existingNode && this.offset - this.currentWord.length > 0 && this.textDocument.getText()[this.offset - this.currentWord.length - 1] === ':') {
             // after the ':' of a pseudo selector, no node generated for just ':'
             this.currentWord = ':' + this.currentWord;
-            this.defaultReplaceRange = Range.create(Position.create(this.position.line, this.position.character - this.currentWord.length), this.position);
+            this.defaultReplaceRange = main_Range.create(main_Position.create(this.position.line, this.position.character - this.currentWord.length), this.position);
         }
         var pseudoClasses = this.cssDataManager.getPseudoClasses();
         pseudoClasses.forEach(function (entry) {
@@ -18193,11 +18137,11 @@ var CSSCompletion = /** @class */ (function () {
                 label: entry.name,
                 textEdit: TextEdit.replace(_this.getCompletionRange(existingNode), insertText),
                 documentation: getEntryDescription(entry, _this.doesSupportMarkdown()),
-                tags: isDeprecated(entry) ? [CompletionItemTag.Deprecated] : [],
-                kind: CompletionItemKind.Function,
+                tags: isDeprecated(entry) ? [main_CompletionItemTag.Deprecated] : [],
+                kind: main_CompletionItemKind.Function,
                 insertTextFormat: entry.name !== insertText ? SnippetFormat : void 0
             };
-            if (startsWith(entry.name, ':-')) {
+            if (strings_startsWith(entry.name, ':-')) {
                 item.sortText = SortTexts.VendorPrefixed;
             }
             result.items.push(item);
@@ -18209,11 +18153,11 @@ var CSSCompletion = /** @class */ (function () {
                 label: entry.name,
                 textEdit: TextEdit.replace(_this.getCompletionRange(existingNode), insertText),
                 documentation: getEntryDescription(entry, _this.doesSupportMarkdown()),
-                tags: isDeprecated(entry) ? [CompletionItemTag.Deprecated] : [],
-                kind: CompletionItemKind.Function,
+                tags: isDeprecated(entry) ? [main_CompletionItemTag.Deprecated] : [],
+                kind: main_CompletionItemKind.Function,
                 insertTextFormat: entry.name !== insertText ? SnippetFormat : void 0
             };
-            if (startsWith(entry.name, '::-')) {
+            if (strings_startsWith(entry.name, '::-')) {
                 item.sortText = SortTexts.VendorPrefixed;
             }
             result.items.push(item);
@@ -18224,7 +18168,7 @@ var CSSCompletion = /** @class */ (function () {
                 result.items.push({
                     label: entry,
                     textEdit: TextEdit.replace(this.getCompletionRange(existingNode), entry),
-                    kind: CompletionItemKind.Keyword
+                    kind: main_CompletionItemKind.Keyword
                 });
             }
             for (var _b = 0, _c = svgElements; _b < _c.length; _b++) {
@@ -18232,7 +18176,7 @@ var CSSCompletion = /** @class */ (function () {
                 result.items.push({
                     label: entry,
                     textEdit: TextEdit.replace(this.getCompletionRange(existingNode), entry),
-                    kind: CompletionItemKind.Keyword
+                    kind: main_CompletionItemKind.Keyword
                 });
             }
         }
@@ -18247,7 +18191,7 @@ var CSSCompletion = /** @class */ (function () {
                     result.items.push({
                         label: selector,
                         textEdit: TextEdit.replace(_this.getCompletionRange(existingNode), selector),
-                        kind: CompletionItemKind.Keyword
+                        kind: main_CompletionItemKind.Keyword
                     });
                 }
                 return false;
@@ -18382,7 +18326,7 @@ var CSSCompletion = /** @class */ (function () {
             detail: symbol.name + '(' + params.join(', ') + ')',
             textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
             insertTextFormat: SnippetFormat,
-            kind: CompletionItemKind.Function,
+            kind: main_CompletionItemKind.Function,
             sortText: SortTexts.Term
         };
     };
@@ -18430,7 +18374,7 @@ var CSSCompletion = /** @class */ (function () {
             uriValue = '';
             position = this.position;
             var emptyURIValuePosition = this.textDocument.positionAt(uriLiteralNode.offset + 'url('.length);
-            range = Range.create(emptyURIValuePosition, emptyURIValuePosition);
+            range = main_Range.create(emptyURIValuePosition, emptyURIValuePosition);
         }
         else {
             var uriValueNode = uriLiteralNode.getChild(0);
@@ -18501,7 +18445,7 @@ function computeRankNumber(n) {
             return '0000';
     }
 }
-var Set = /** @class */ (function () {
+var cssCompletion_Set = /** @class */ (function () {
     function Set() {
         this.entries = {};
     }
@@ -18518,7 +18462,7 @@ function moveCursorInsideParenthesis(text) {
 }
 function collectValues(styleSheet, declaration) {
     var fullPropertyName = declaration.getFullPropertyName();
-    var entries = new Set();
+    var entries = new cssCompletion_Set();
     function visitValue(node) {
         if (node instanceof Identifier || node instanceof NumericValue || node instanceof HexColorValue) {
             entries.add(node.getText());
@@ -19085,7 +19029,7 @@ var CSSHover = /** @class */ (function () {
     }
     CSSHover.prototype.doHover = function (document, position, stylesheet) {
         function getRange(node) {
-            return Range.create(document.positionAt(node.offset), document.positionAt(node.end));
+            return main_Range.create(document.positionAt(node.offset), document.positionAt(node.end));
         }
         var offset = document.offsetAt(position);
         var nodepath = getNodePath(stylesheet, offset);
@@ -19107,7 +19051,7 @@ var CSSHover = /** @class */ (function () {
                 /**
                  * Some sass specific at rules such as `@at-root` are parsed as `SimpleSelector`
                  */
-                if (!startsWith(node.getText(), '@')) {
+                if (!strings_startsWith(node.getText(), '@')) {
                     hover = {
                         contents: this.selectorPrinting.simpleSelectorToMarkedString(node),
                         range: getRange(node)
@@ -19149,7 +19093,7 @@ var CSSHover = /** @class */ (function () {
                 }
                 continue;
             }
-            if (node instanceof Node && node.type === NodeType.PseudoSelector) {
+            if (node instanceof cssNodes_Node && node.type === NodeType.PseudoSelector) {
                 var selectorName = node.getText();
                 var entry = selectorName.slice(0, 2) === '::'
                     ? this.cssDataManager.getPseudoElement(selectorName)
@@ -19387,7 +19331,7 @@ var CSSNavigation = /** @class */ (function () {
             if (range.start.line === range.end.line && range.start.character === range.end.character) {
                 return;
             }
-            if (startsWith(rawUri, "'") || startsWith(rawUri, "\"")) {
+            if (strings_startsWith(rawUri, "'") || strings_startsWith(rawUri, "\"")) {
                 rawUri = rawUri.slice(1, -1);
             }
             result.push({ target: rawUri, range: range });
@@ -19406,7 +19350,7 @@ var CSSNavigation = /** @class */ (function () {
              */
             if (candidate.parent && _this.isRawStringDocumentLinkNode(candidate.parent)) {
                 var rawText = candidate.getText();
-                if (startsWith(rawText, "'") || startsWith(rawText, "\"")) {
+                if (strings_startsWith(rawText, "'") || strings_startsWith(rawText, "\"")) {
                     collect(candidate);
                 }
                 return false;
@@ -19420,7 +19364,7 @@ var CSSNavigation = /** @class */ (function () {
         stylesheet.accept(function (node) {
             var entry = {
                 name: null,
-                kind: SymbolKind.Class,
+                kind: main_SymbolKind.Class,
                 location: null
             };
             var locationNode = node;
@@ -19435,15 +19379,15 @@ var CSSNavigation = /** @class */ (function () {
             }
             else if (node instanceof VariableDeclaration) {
                 entry.name = node.getName();
-                entry.kind = SymbolKind.Variable;
+                entry.kind = main_SymbolKind.Variable;
             }
             else if (node instanceof MixinDeclaration) {
                 entry.name = node.getName();
-                entry.kind = SymbolKind.Method;
+                entry.kind = main_SymbolKind.Method;
             }
             else if (node instanceof FunctionDeclaration) {
                 entry.name = node.getName();
-                entry.kind = SymbolKind.Function;
+                entry.kind = main_SymbolKind.Function;
             }
             else if (node instanceof Keyframe) {
                 entry.name = cssNavigation_localize('literal.keyframes', "@keyframes {0}", node.getName());
@@ -19455,7 +19399,7 @@ var CSSNavigation = /** @class */ (function () {
                 var mediaList = node.getChild(0);
                 if (mediaList instanceof Medialist) {
                     entry.name = '@media ' + mediaList.getText();
-                    entry.kind = SymbolKind.Module;
+                    entry.kind = main_SymbolKind.Module;
                 }
             }
             if (entry.name) {
@@ -19521,10 +19465,10 @@ var CSSNavigation = /** @class */ (function () {
                     case 0:
                         if (!(ref[0] === '~' && ref[1] !== '/' && this.fileSystemProvider)) return [3 /*break*/, 3];
                         ref = ref.substring(1);
-                        if (!startsWith(documentUri, 'file://')) return [3 /*break*/, 2];
+                        if (!strings_startsWith(documentUri, 'file://')) return [3 /*break*/, 2];
                         moduleName = getModuleNameFromPath(ref);
                         rootFolderUri = documentContext.resolveReference('/', documentUri);
-                        documentFolderUri = dirname(documentUri);
+                        documentFolderUri = resources_dirname(documentUri);
                         return [4 /*yield*/, this.resolvePathToModule(moduleName, documentFolderUri, rootFolderUri)];
                     case 1:
                         modulePath = _a.sent();
@@ -19549,10 +19493,10 @@ var CSSNavigation = /** @class */ (function () {
                         return [4 /*yield*/, this.fileExists(packPath)];
                     case 1:
                         if (_a.sent()) {
-                            return [2 /*return*/, dirname(packPath)];
+                            return [2 /*return*/, resources_dirname(packPath)];
                         }
                         else if (rootFolderUri && documentFolderUri.startsWith(rootFolderUri) && (documentFolderUri.length !== rootFolderUri.length)) {
-                            return [2 /*return*/, this.resolvePathToModule(_moduleName, dirname(documentFolderUri), rootFolderUri)];
+                            return [2 /*return*/, this.resolvePathToModule(_moduleName, resources_dirname(documentFolderUri), rootFolderUri)];
                         }
                         return [2 /*return*/, undefined];
                 }
@@ -19598,16 +19542,16 @@ function getColorInformation(node, document) {
     return null;
 }
 function getRange(node, document) {
-    return Range.create(document.positionAt(node.offset), document.positionAt(node.end));
+    return main_Range.create(document.positionAt(node.offset), document.positionAt(node.end));
 }
 function getHighlightKind(node) {
     if (node.type === NodeType.Selector) {
-        return DocumentHighlightKind.Write;
+        return main_DocumentHighlightKind.Write;
     }
     if (node instanceof Identifier) {
         if (node.parent && node.parent instanceof Property) {
             if (node.isCustomProperty) {
-                return DocumentHighlightKind.Write;
+                return main_DocumentHighlightKind.Write;
             }
         }
     }
@@ -19618,10 +19562,10 @@ function getHighlightKind(node) {
             case NodeType.Keyframe:
             case NodeType.VariableDeclaration:
             case NodeType.FunctionParameter:
-                return DocumentHighlightKind.Write;
+                return main_DocumentHighlightKind.Write;
         }
     }
-    return DocumentHighlightKind.Read;
+    return main_DocumentHighlightKind.Read;
 }
 function toTwoDigitHex(n) {
     var r = n.toString(16);
@@ -20586,7 +20530,7 @@ var CSSValidation = /** @class */ (function () {
             ruleIds.push(Rules[r].id);
         }
         function toDiagnostic(marker) {
-            var range = Range.create(document.positionAt(marker.getOffset()), document.positionAt(marker.getOffset() + marker.getLength()));
+            var range = main_Range.create(document.positionAt(marker.getOffset()), document.positionAt(marker.getOffset() + marker.getLength()));
             var source = document.languageId;
             return {
                 code: marker.getRule().id,
@@ -20953,7 +20897,7 @@ var SCSSParser = /** @class */ (function (_super) {
     };
     SCSSParser.prototype._parseUnaryOperator = function () {
         if (this.peekIdent('not')) {
-            var node = this.create(Node);
+            var node = this.create(cssNodes_Node);
             this.consumeToken();
             return this.finish(node);
         }
@@ -21387,7 +21331,7 @@ var SCSSParser = /** @class */ (function (_super) {
         var node = _super.prototype._parseURLArgument.call(this);
         if (!node || !this.peek(TokenType.ParenthesisR)) {
             this.restoreAtMark(pos);
-            var node_1 = this.create(Node);
+            var node_1 = this.create(cssNodes_Node);
             node_1.addChild(this._parseBinaryExpr());
             return this.finish(node_1);
         }
@@ -21397,7 +21341,7 @@ var SCSSParser = /** @class */ (function (_super) {
         if (!this.peek(TokenType.ParenthesisL)) {
             return null;
         }
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         this.consumeToken();
         while (node.addChild(this._parseListElement())) {
             this.accept(TokenType.Comma); // optional
@@ -21574,7 +21518,7 @@ var SCSSCompletion = /** @class */ (function (_super) {
                     label: p.label,
                     documentation: p.documentation,
                     textEdit: TextEdit.replace(this.getCompletionRange(importPathNode), "'" + p.label + "'"),
-                    kind: CompletionItemKind.Module
+                    kind: main_CompletionItemKind.Module
                 };
                 result.items.push(item);
             }
@@ -21598,7 +21542,7 @@ var SCSSCompletion = /** @class */ (function (_super) {
                 documentation: p.desc,
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), insertText),
                 insertTextFormat: InsertTextFormat.Snippet,
-                kind: CompletionItemKind.Function
+                kind: main_CompletionItemKind.Function
             };
             if (sortToEnd) {
                 item.sortText = 'z';
@@ -21635,7 +21579,7 @@ var SCSSCompletion = /** @class */ (function (_super) {
             var suggest = {
                 label: symbol.name,
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), symbol.name),
-                kind: CompletionItemKind.Function,
+                kind: main_CompletionItemKind.Function,
             };
             result.items.push(suggest);
         }
@@ -21760,72 +21704,72 @@ var SCSSCompletion = /** @class */ (function (_super) {
         {
             label: "@extend",
             documentation: scssCompletion_localize("scss.builtin.@extend", "Inherits the styles of another selector."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@at-root",
             documentation: scssCompletion_localize("scss.builtin.@at-root", "Causes one or more rules to be emitted at the root of the document."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@debug",
             documentation: scssCompletion_localize("scss.builtin.@debug", "Prints the value of an expression to the standard error output stream. Useful for debugging complicated Sass files."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@warn",
             documentation: scssCompletion_localize("scss.builtin.@warn", "Prints the value of an expression to the standard error output stream. Useful for libraries that need to warn users of deprecations or recovering from minor mixin usage mistakes. Warnings can be turned off with the `--quiet` command-line option or the `:quiet` Sass option."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@error",
             documentation: scssCompletion_localize("scss.builtin.@error", "Throws the value of an expression as a fatal error with stack trace. Useful for validating arguments to mixins and functions."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@if",
             documentation: scssCompletion_localize("scss.builtin.@if", "Includes the body if the expression does not evaluate to `false` or `null`."),
             insertText: "@if ${1:expr} {\n\t$0\n}",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@for",
             documentation: scssCompletion_localize("scss.builtin.@for", "For loop that repeatedly outputs a set of styles for each `$var` in the `from/through` or `from/to` clause."),
             insertText: "@for \\$${1:var} from ${2:start} ${3|to,through|} ${4:end} {\n\t$0\n}",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@each",
             documentation: scssCompletion_localize("scss.builtin.@each", "Each loop that sets `$var` to each item in the list or map, then outputs the styles it contains using that value of `$var`."),
             insertText: "@each \\$${1:var} in ${2:list} {\n\t$0\n}",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@while",
             documentation: scssCompletion_localize("scss.builtin.@while", "While loop that takes an expression and repeatedly outputs the nested styles until the statement evaluates to `false`."),
             insertText: "@while ${1:condition} {\n\t$0\n}",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@mixin",
             documentation: scssCompletion_localize("scss.builtin.@mixin", "Defines styles that can be re-used throughout the stylesheet with `@include`."),
             insertText: "@mixin ${1:name} {\n\t$0\n}",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@include",
             documentation: scssCompletion_localize("scss.builtin.@include", "Includes the styles defined by another mixin into the current rule."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@function",
             documentation: scssCompletion_localize("scss.builtin.@function", "Defines complex operations that can be re-used throughout stylesheets."),
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         }
     ];
     SCSSCompletion.scssModuleLoaders = [
@@ -21835,7 +21779,7 @@ var SCSSCompletion = /** @class */ (function (_super) {
             references: [{ name: 'Sass documentation', url: 'https://sass-lang.com/documentation/at-rules/use' }],
             insertText: "@use '$0';",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
         {
             label: "@forward",
@@ -21843,7 +21787,7 @@ var SCSSCompletion = /** @class */ (function (_super) {
             references: [{ name: 'Sass documentation', url: 'https://sass-lang.com/documentation/at-rules/forward' }],
             insertText: "@forward '$0';",
             insertTextFormat: InsertTextFormat.Snippet,
-            kind: CompletionItemKind.Keyword
+            kind: main_CompletionItemKind.Keyword
         },
     ];
     SCSSCompletion.scssModuleBuiltIns = [
@@ -22176,7 +22120,7 @@ var LESSParser = /** @class */ (function (_super) {
         return !expectsValue;
     };
     LESSParser.prototype._parseLookupValue = function () {
-        var node = this.create(Node);
+        var node = this.create(cssNodes_Node);
         var mark = this.mark();
         if (!this.accept(TokenType.BracketL)) {
             this.restoreAtMark(mark);
@@ -22618,7 +22562,7 @@ var LESSParser = /** @class */ (function (_super) {
         var node = this.create(FunctionParameter);
         // special rest variable: @rest...
         if (this.peekKeyword('@rest')) {
-            var restNode = this.create(Node);
+            var restNode = this.create(cssNodes_Node);
             this.consumeToken();
             if (!this.accept(lessScanner_Ellipsis)) {
                 return this.finish(node, ParseError.DotExpected, [], [TokenType.Comma, TokenType.ParenthesisR]);
@@ -22628,7 +22572,7 @@ var LESSParser = /** @class */ (function (_super) {
         }
         // special const args: ...
         if (this.peek(lessScanner_Ellipsis)) {
-            var varargsNode = this.create(Node);
+            var varargsNode = this.create(cssNodes_Node);
             this.consumeToken();
             node.setIdentifier(this.finish(varargsNode));
             return this.finish(node);
@@ -22714,7 +22658,7 @@ var LESSParser = /** @class */ (function (_super) {
         var node = _super.prototype._parseURLArgument.call(this);
         if (!node || !this.peek(TokenType.ParenthesisR)) {
             this.restoreAtMark(pos);
-            var node_2 = this.create(Node);
+            var node_2 = this.create(cssNodes_Node);
             node_2.addChild(this._parseBinaryExpr());
             return this.finish(node_2);
         }
@@ -22761,7 +22705,7 @@ var LESSCompletion = /** @class */ (function (_super) {
                 documentation: p.description,
                 textEdit: TextEdit.replace(this.getCompletionRange(existingNode), p.name + '($0)'),
                 insertTextFormat: InsertTextFormat.Snippet,
-                kind: CompletionItemKind.Function
+                kind: main_CompletionItemKind.Function
             };
             if (sortToEnd) {
                 item.sortText = 'z';
@@ -45013,10 +44957,10 @@ function getSelectionRanges(document, positions, stylesheet) {
         var applicableRanges = getApplicableRanges(position);
         var current = undefined;
         for (var index = applicableRanges.length - 1; index >= 0; index--) {
-            current = SelectionRange.create(Range.create(document.positionAt(applicableRanges[index][0]), document.positionAt(applicableRanges[index][1])), current);
+            current = SelectionRange.create(main_Range.create(document.positionAt(applicableRanges[index][0]), document.positionAt(applicableRanges[index][1])), current);
         }
         if (!current) {
-            current = SelectionRange.create(Range.create(position, position));
+            current = SelectionRange.create(main_Range.create(position, position));
         }
         return current;
     }
@@ -45165,13 +45109,13 @@ var SCSSNavigation = /** @class */ (function (_super) {
             return scssNavigation_generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (startsWith(ref, 'sass:')) {
+                        if (strings_startsWith(ref, 'sass:')) {
                             return [2 /*return*/, undefined]; // sass library
                         }
                         return [4 /*yield*/, _super.prototype.resolveRelativeReference.call(this, ref, documentUri, documentContext)];
                     case 1:
                         target = _a.sent();
-                        if (!(this.fileSystemProvider && target && extname(target).length === 0)) return [3 /*break*/, 8];
+                        if (!(this.fileSystemProvider && target && resources_extname(target).length === 0)) return [3 /*break*/, 8];
                         _a.label = 2;
                     case 2:
                         _a.trys.push([2, 7, , 8]);
@@ -45500,7 +45444,7 @@ var CSSWorker = /** @class */ (function () {
     return CSSWorker;
 }());
 
-function create(ctx, createData) {
+function cssWorker_create(ctx, createData) {
     return new CSSWorker(ctx, createData);
 }
 
@@ -45513,12 +45457,10 @@ function create(ctx, createData) {
 
 self.onmessage = function () {
     // ignore the first message
-    editor_worker/* initialize */.j(function (ctx, createData) {
+    initialize(function (ctx, createData) {
         return new CSSWorker(ctx, createData);
     });
 };
-
-})();
 
 /******/ })()
 ;
