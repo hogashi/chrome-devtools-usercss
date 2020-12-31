@@ -4,11 +4,55 @@
 <meta charset="UTF-8">
 <style>
 body {
-  width: 100%;
+  width: 500px;
+  margin: 0;
+  padding: 15px;
 }
-input, select, textarea {
+input, select {
   font-family: monospace;
   padding: 3px 4px;
+}
+select {
+  max-width: 100%;
+}
+#root, #container {
+  width: 100%;
+}
+#editor-label {
+  margin-top: 3px;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+#editor {
+  width: 100%;
+  height: 300px;
+  border: 1px solid gray;
+  box-sizing: border-box;
+}
+#save-section {
+  margin-top: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+#save-label {
+  flex: 0 1 auto;
+}
+#save-button {
+  flex: 0 1 80px;
+  height: 2.3em;
+  border: none;
+  background-color: #4d4d4d;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#save-button.saved {
+  border: 2px solid #4d4d4d;
+  background-color: white;
+  color: #4d4d4d;
 }
 </style>
 </head>

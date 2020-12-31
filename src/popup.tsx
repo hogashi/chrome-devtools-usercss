@@ -37,6 +37,7 @@ const PLACEHOLDER = `body {
 
 const SAVE_BUTTON_INIT_VALUE = '保存';
 const SAVE_BUTTON_SAVED_VALUE = 'しました';
+const SAVE_BUTTON_SAVED_CLASS_NAME = 'saved';
 
 const initHostnameSet: HostnameSet = JSON.parse(
   localStorage.getItem(HOSTNAME_SET) || '{}'
@@ -63,9 +64,7 @@ const App: React.FC = () => {
   ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorDivRef = useRef<HTMLDivElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
-  const [saveButtonValue, setSaveButtonValue] = useState(
-    SAVE_BUTTON_INIT_VALUE
-  );
+  const [saveButtonSaved, setSaveButtonSaved] = useState(false);
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
 
   // エディタの初期化
@@ -165,13 +164,13 @@ const App: React.FC = () => {
     const newValue = editor.getValue();
     localStorage.setItem(newHostname, newValue);
 
-    // 保存ボタンで保存した旨出す
-    setSaveButtonValue(SAVE_BUTTON_SAVED_VALUE);
-    // ちょっとしたら保存ボタン戻す
+    // 保存しました状態にする
+    setSaveButtonSaved(true);
+    // ちょっとしたら保存しました状態戻す
     clearTimeout(saveButtonTimer);
     setSaveButtonTimer(
       window.setTimeout(() => {
-        setSaveButtonValue(SAVE_BUTTON_INIT_VALUE);
+        setSaveButtonSaved(false);
       }, 1000)
     );
 
@@ -202,10 +201,10 @@ const App: React.FC = () => {
   );
 
   return (
-    <div>
+    <div id='container'>
       <div>
         <label>
-          編集したい保存済みドメインを選ぶ
+          ドメインを選んでUserCSSを読み込む
           <br />
           <select id='hostname-selector' onChange={onHostnameSelectChange}>
             <option value=''>選択...</option>
@@ -213,25 +212,21 @@ const App: React.FC = () => {
           </select>
         </label>
       </div>
-      <div>
-        <label>
+      <div id='editor-label'>
+        <span style={{ flex: '0 1 auto' }}>UserCSS</span>
+        <label style={{ flex: '0 1 auto' }}>
           <input
             id='word-wrap'
             type='checkbox'
             checked={wordWrapChecked}
             onChange={onWordWrapChanged}
           />
-          行の折返し
+          行の折り返し
         </label>
       </div>
-      <div
-        id='editor'
-        ref={editorDivRef}
-        style={{ height: '300px', width: '500px', border: '1px solid gray' }}
-        onKeyDown={onKeyDown}
-      ></div>
-      <div>
-        <label>
+      <div id='editor' ref={editorDivRef} onKeyDown={onKeyDown}></div>
+      <div id='save-section'>
+        <label id='save-label'>
           このUserCSSを保存するドメイン
           <br />
           <input
@@ -243,14 +238,13 @@ const App: React.FC = () => {
             onChange={onHostnameInputChange}
           />
         </label>
-      </div>
-      <div>
         <button
           id='save-button'
+          className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
           disabled={hostnameInputValue.length === 0}
           onClick={onSaveButtonClick}
         >
-          {saveButtonValue}
+          {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
         </button>
       </div>
     </div>
