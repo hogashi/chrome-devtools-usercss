@@ -76,7 +76,8 @@ const App: React.FC = () => {
     const newEditor = monaco.editor.create(editorDivRef.current, {
       value: PLACEHOLDER,
       language: 'css',
-      lineNumbersMinChars: 2,
+      lineDecorationsWidth: 1,
+      lineNumbersMinChars: 3,
       minimap: {
         maxColumn: 40,
       },
@@ -213,7 +214,7 @@ const App: React.FC = () => {
       <div
         id='editor'
         ref={editorDivRef}
-        style={{ height: '300px', width: '500px' }}
+        style={{ height: '300px', width: '500px', border: '1px solid gray' }}
       ></div>
       <div>
         <label>
