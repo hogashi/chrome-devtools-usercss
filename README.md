@@ -4,5 +4,5 @@
 
 chrome extension which inserts usercss for each site
 
-![example screenshot; usercss for github.com](./usercss-screenshot.png)
+![example screenshot; usercss for github.com](./screenshot.png)
 
