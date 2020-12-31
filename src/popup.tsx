@@ -75,6 +75,7 @@ const App: React.FC = () => {
     }
     const newEditor = monaco.editor.create(editorDivRef.current, {
       value: PLACEHOLDER,
+      contextmenu: false,
       language: 'css',
       lineDecorationsWidth: 1,
       lineNumbersMinChars: 3,
