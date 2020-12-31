@@ -1,10 +1,10 @@
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+
 module.exports = {
   entry: {
     index: './src/index.ts',
     background: './src/background.ts',
     popup: './src/popup.tsx',
-    'css.worker': 'monaco-editor/esm/vs/language/css/css.worker',
-    'editor.worker': 'monaco-editor/esm/vs/editor/editor.worker.js',
   },
   output: {
     filename: '[name].js',
@@ -48,6 +48,12 @@ module.exports = {
       },
     ],
   },
+
+  plugins: [
+    new MonacoWebpackPlugin({
+      languages: ['css'],
+    }),
+  ],
 
   optimization: {
     // no minimize for chrome extension
