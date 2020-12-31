@@ -28,8 +28,8 @@ type HostnameSet = {
 const HOSTNAME_SET = 'hostnameSet';
 const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 const WORD_WRAP = 'wordWrap';
-const wordWrapOn = 'on';
-const wordWrapOff = 'off';
+const WORD_WRAP_ON = 'on';
+const WORD_WRAP_OFF = 'off';
 
 const PLACEHOLDER = `body {
   color: magenta;
@@ -49,7 +49,7 @@ const setLastSelectedHostname = (hostname: string): void =>
   localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
 // 行の折返し(デフォルトでON)
 const initwordWrapChecked: boolean =
-  localStorage.getItem(WORD_WRAP) !== wordWrapOff;
+  localStorage.getItem(WORD_WRAP) !== WORD_WRAP_OFF;
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
@@ -88,7 +88,7 @@ const App: React.FC = () => {
 
   // 行の折返しの更新
   useEffect(() => {
-    const wordWrap = wordWrapChecked ? wordWrapOn : wordWrapOff;
+    const wordWrap = wordWrapChecked ? WORD_WRAP_ON : WORD_WRAP_OFF;
     editor?.updateOptions({ wordWrap });
     localStorage.setItem(WORD_WRAP, wordWrap);
   }, [editor, wordWrapChecked]);
