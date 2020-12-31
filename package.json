@@ -1,6 +1,6 @@
 {
   "name": "chrome-usercss-hogashi",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "usercss for each site",
   "main": "src/index.js",
   "repository": "ssh://git@github.com/hogashi/chrome-usercss-hogashi",
