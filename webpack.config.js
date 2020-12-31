@@ -52,6 +52,7 @@ module.exports = {
   optimization: {
     // no minimize for chrome extension
     minimize: false,
+    chunkIds: 'named',
   },
 
   // When importing a module whose path matches one of the following, just
