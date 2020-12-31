@@ -1,5 +1,25 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+
+// @ts-expect-error: MonacoEnvironment is undefined in window
+self.MonacoEnvironment = {
+  getWorkerUrl: function (_workerId: string, label: string) {
+    // if (label === 'json') {
+    // 	return './json.worker.bundle.js';
+    // }
+    if (label === 'css') {
+      return './css.worker.js';
+    }
+    // if (label === 'html' || label === 'handlebars' || label === 'razor') {
+    // 	return './html.worker.bundle.js';
+    // }
+    // if (label === 'typescript' || label === 'javascript') {
+    // 	return './ts.worker.bundle.js';
+    // }
+    return './editor.worker.js';
+  },
+};
 
 type HostnameSet = {
   [hostname: string]: true;
@@ -7,6 +27,9 @@ type HostnameSet = {
 
 const HOSTNAME_SET = 'hostnameSet';
 const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+const WORD_WRAP = 'wordWrap';
+const WORD_WRAP_ON = 'on';
+const WORD_WRAP_OFF = 'off';
 
 const PLACEHOLDER = `body {
   color: magenta;
@@ -24,23 +47,58 @@ const lastSelectedHostname = (() => {
 })();
 const setLastSelectedHostname = (hostname: string): void =>
   localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+// 行の折返し(デフォルトでON)
+const initwordWrapChecked: boolean =
+  localStorage.getItem(WORD_WRAP) !== WORD_WRAP_OFF;
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
-  const [textAreaValue, setTextAreaValue] = useState('');
+  const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(
+    initwordWrapChecked
+  );
+  const [
+    editor,
+    setEditor,
+  ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
+  const editorDivRef = useRef<HTMLDivElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
   const [saveButtonValue, setSaveButtonValue] = useState(
     SAVE_BUTTON_INIT_VALUE
   );
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
 
+  // エディタの初期化
+  useEffect(() => {
+    if (!editorDivRef.current) {
+      return;
+    }
+    const newEditor = monaco.editor.create(editorDivRef.current, {
+      value: PLACEHOLDER,
+      contextmenu: false,
+      language: 'css',
+      lineDecorationsWidth: 1,
+      lineNumbersMinChars: 3,
+      minimap: {
+        maxColumn: 40,
+      },
+    });
+    setEditor(newEditor);
+  }, []);
+
+  // 行の折返しの更新
+  useEffect(() => {
+    const wordWrap = wordWrapChecked ? WORD_WRAP_ON : WORD_WRAP_OFF;
+    editor?.updateOptions({ wordWrap });
+    localStorage.setItem(WORD_WRAP, wordWrap);
+  }, [editor, wordWrapChecked]);
+
   // hostnameたちの更新
   useEffect(() => {
     localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
   }, [hostnameSet]);
 
-  // hostnameのUserCSSをtextareaにセットする
+  // hostnameのUserCSSをエディタにセットする
   useEffect(() => {
     // hostnameを「前に最後に見てたhostname」として登録する
     setLastSelectedHostname(hostname);
@@ -49,13 +107,14 @@ const App: React.FC = () => {
     setHostnameInputValue(hostname);
 
     if (hostname.length === 0) {
-      setTextAreaValue('');
+      // hostnameのselectタグのデフォルトのoptionタグのときエディタは空にする
+      editor?.setValue('');
       return;
     }
 
     const style = localStorage.getItem(hostname) || '';
-    setTextAreaValue(style);
-  }, [hostname]);
+    editor?.setValue(style);
+  }, [editor, hostname]);
 
   // EventListenerたち
 
@@ -70,14 +129,6 @@ const App: React.FC = () => {
     []
   );
 
-  // UserCSSのtextarea入力したとき(UserCSSの値を更新する)
-  const onTextAreaChange = useCallback(
-    (event: React.ChangeEvent<HTMLTextAreaElement>): void => {
-      setTextAreaValue(event.target.value);
-    },
-    []
-  );
-
   // hostnameのinputを入力したとき(hostnameのinputの値を更新する)
   const onHostnameInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -86,8 +137,22 @@ const App: React.FC = () => {
     []
   );
 
+  // 行の折返しのcheckboxを変えたとき
+  const onWordWrapChanged = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>): void => {
+      setWordWrapChecked(event.target.checked);
+    },
+    []
+  );
+
   // 保存ボタンを押したとき
   const onSaveButtonClick = useCallback((): void => {
+    if (!editor) {
+      // エディタあるはずだけどなかったらおかしいので何もせずに終わる
+      console.log('editor not found');
+      return;
+    }
+
     const newHostname = hostnameInputValue;
     if (!hostnameSet[newHostname]) {
       // hostnameまだないときhostnameたちに新しく登録する
@@ -96,7 +161,9 @@ const App: React.FC = () => {
       setHostnameSet(newHostnameSet);
     }
 
-    localStorage.setItem(newHostname, textAreaValue);
+    // エディタに書かれてる文字列を取ってきてhostnameのUserCSSとして登録する
+    const newValue = editor.getValue();
+    localStorage.setItem(newHostname, newValue);
 
     // 保存ボタンで保存した旨出す
     setSaveButtonValue(SAVE_BUTTON_SAVED_VALUE);
@@ -110,7 +177,7 @@ const App: React.FC = () => {
 
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
-  }, [hostnameSet, hostnameInputValue, textAreaValue, saveButtonTimer]);
+  }, [editor, hostnameSet, hostnameInputValue, saveButtonTimer]);
 
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
@@ -147,16 +214,22 @@ const App: React.FC = () => {
         </label>
       </div>
       <div>
-        <textarea
-          id='textarea'
-          placeholder={PLACEHOLDER}
-          cols={50}
-          rows={20}
-          value={textAreaValue}
-          onChange={onTextAreaChange}
-          onKeyDown={onKeyDown}
-        ></textarea>
+        <label>
+          <input
+            id='word-wrap'
+            type='checkbox'
+            checked={wordWrapChecked}
+            onChange={onWordWrapChanged}
+          />
+          行の折返し
+        </label>
       </div>
+      <div
+        id='editor'
+        ref={editorDivRef}
+        style={{ height: '300px', width: '500px', border: '1px solid gray' }}
+        onKeyDown={onKeyDown}
+      ></div>
       <div>
         <label>
           このUserCSSを保存するドメイン

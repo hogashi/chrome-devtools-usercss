@@ -1,3 +1,5 @@
+const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+
 module.exports = {
   entry: {
     index: './src/index.ts',
@@ -27,7 +29,7 @@ module.exports = {
                 '@babel/preset-typescript',
                 [
                   '@babel/preset-react',
-                    // for new jsx transform in react 17 https://babeljs.io/blog/2020/03/16/7.9.0#a-new-jsx-transform-11154httpsgithubcombabelbabelpull11154
+                  // for new jsx transform in react 17 https://babeljs.io/blog/2020/03/16/7.9.0#a-new-jsx-transform-11154httpsgithubcombabelbabelpull11154
                   { runtime: 'automatic' },
                 ],
               ],
@@ -36,12 +38,27 @@ module.exports = {
         ],
         exclude: /node_modules/,
       },
+      {
+        test: /\.css$/,
+        use: ['style-loader', 'css-loader'],
+      },
+      {
+        test: /\.ttf$/,
+        use: ['file-loader'],
+      },
     ],
   },
+
+  plugins: [
+    new MonacoWebpackPlugin({
+      languages: ['css'],
+    }),
+  ],
 
   optimization: {
     // no minimize for chrome extension
     minimize: false,
+    chunkIds: 'named',
   },
 
   // When importing a module whose path matches one of the following, just
