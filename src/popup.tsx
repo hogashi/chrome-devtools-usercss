@@ -189,6 +189,18 @@ const App: React.FC = () => {
     );
   });
 
+  // キー押したとき
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        onSaveButtonClick();
+      }
+    },
+    [onSaveButtonClick]
+  );
+
   return (
     <div>
       <div>
@@ -216,6 +228,7 @@ const App: React.FC = () => {
         id='editor'
         ref={editorDivRef}
         style={{ height: '300px', width: '500px', border: '1px solid gray' }}
+        onKeyDown={onKeyDown}
       ></div>
       <div>
         <label>
