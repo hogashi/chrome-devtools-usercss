@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import 'typed-query-selector';
 
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
@@ -251,4 +252,4 @@ const App: React.FC = () => {
   );
 };
 
-ReactDOM.render(<App />, document.querySelector<HTMLDivElement>('#root'));
+ReactDOM.render(<App />, document.querySelector('div#root'));
