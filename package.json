@@ -11,8 +11,7 @@
     "test:eslint": "eslint src/*",
     "test:tsc": "tsc --noEmit",
     "test": "run-p test:eslint test:tsc",
-    "build:webpack": "webpack",
-    "build": "run-s test:tsc build:webpack"
+    "build": "webpack"
   },
   "devDependencies": {
     "@babel/cli": "^7.12.10",

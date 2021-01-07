@@ -21,4 +21,4 @@ jobs:
         CI: true
 
     - name: build
-      run: yarn build:webpack
+      run: yarn build
