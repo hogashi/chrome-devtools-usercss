@@ -2,16 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-// from typed-query-selector/shim
-import type { ParseSelector } from 'typed-query-selector/parser';
-declare global {
-  interface ParentNode {
-    querySelector<S extends string, E extends Element = ParseSelector<S>>(
-      selector: S
-    ): E | null;
-  }
-}
-
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
   getWorkerUrl: function (_workerId: string, label: string) {
