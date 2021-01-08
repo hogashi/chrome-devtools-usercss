@@ -251,4 +251,4 @@ const App: React.FC = () => {
   );
 };
 
-ReactDOM.render(<App />, document.querySelector<HTMLDivElement>('#root'));
+ReactDOM.render(<App />, document.querySelector('div#root'));
