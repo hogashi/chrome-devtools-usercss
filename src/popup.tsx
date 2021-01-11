@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-import { HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from './lib/Constants';
+import { HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from './lib/constants';
 import {
   getLocalStorageItem,
   getHostnameSet,
   importDataToLocalStorage,
   downloadDataAsJson,
-} from './lib/Utils';
+} from './lib/utils';
 
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {

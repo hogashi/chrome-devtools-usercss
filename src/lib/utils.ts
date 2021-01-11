@@ -2,7 +2,7 @@ import {
   HostnameSet,
   HOSTNAME_SET,
   LAST_SELECTED_HOST_NAME,
-} from './Constants';
+} from './constants';
 
 const datetimeStr = (): string => {
   const date = new Date();
