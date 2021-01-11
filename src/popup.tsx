@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
+import { importDataToLocalStorage, downloadDataAsJson } from './Utils';
+
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
   getWorkerUrl: function (_workerId: string, label: string) {
@@ -66,6 +68,7 @@ const App: React.FC = () => {
   const [hostnameInputValue, setHostnameInputValue] = useState('');
   const [saveButtonSaved, setSaveButtonSaved] = useState(false);
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   // エディタの初期化
   useEffect(() => {
@@ -178,6 +181,15 @@ const App: React.FC = () => {
     setHostname(newHostname);
   }, [editor, hostnameSet, hostnameInputValue, saveButtonTimer]);
 
+  const onImportButtonClick = useCallback(() => {
+    importInputRef.current?.files
+      ?.item(0)
+      ?.text()
+      .then(str => importDataToLocalStorage(str));
+  }, [importInputRef]);
+
+  const onExportButtonClick = useCallback(() => downloadDataAsJson(), []);
+
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hn => {
@@ -201,53 +213,68 @@ const App: React.FC = () => {
   );
 
   return (
-    <div id='container'>
-      <div>
-        <label>
-          ドメインを選んでUserCSSを読み込む
-          <br />
-          <select id='hostname-selector' onChange={onHostnameSelectChange}>
-            <option value=''>選択...</option>
-            {hostNamesOptions}
-          </select>
-        </label>
+    <>
+      <div id='container'>
+        <div>
+          <label>
+            ドメインを選んでUserCSSを読み込む
+            <br />
+            <select id='hostname-selector' onChange={onHostnameSelectChange}>
+              <option value=''>選択...</option>
+              {hostNamesOptions}
+            </select>
+          </label>
+        </div>
+        <div id='editor-label'>
+          <span style={{ flex: '0 1 auto' }}>UserCSS</span>
+          <label style={{ flex: '0 1 auto' }}>
+            <input
+              id='word-wrap'
+              type='checkbox'
+              checked={wordWrapChecked}
+              onChange={onWordWrapChanged}
+            />
+            行の折り返し
+          </label>
+        </div>
+        <div id='editor' ref={editorDivRef} onKeyDown={onKeyDown}></div>
+        <div id='save-section'>
+          <label id='save-label'>
+            このUserCSSを保存するドメイン
+            <br />
+            <input
+              id='hostname-input'
+              placeholder='google.com'
+              type='text'
+              size={35}
+              value={hostnameInputValue}
+              onChange={onHostnameInputChange}
+            />
+          </label>
+          <button
+            id='save-button'
+            className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
+            disabled={hostnameInputValue.length === 0}
+            onClick={onSaveButtonClick}
+          >
+            {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
+          </button>
+        </div>
       </div>
-      <div id='editor-label'>
-        <span style={{ flex: '0 1 auto' }}>UserCSS</span>
-        <label style={{ flex: '0 1 auto' }}>
-          <input
-            id='word-wrap'
-            type='checkbox'
-            checked={wordWrapChecked}
-            onChange={onWordWrapChanged}
-          />
-          行の折り返し
-        </label>
+      <div id='export-import-container'>
+        <div id='import'>
+          インポート
+          <label>
+            ファイルをアップロードして
+            <input type='file' ref={importInputRef} />
+            <button onClick={onImportButtonClick}>インポートする</button>
+          </label>
+        </div>
+        <div id='export'>
+          <button onClick={onExportButtonClick}>エクスポートする</button>
+        </div>
       </div>
-      <div id='editor' ref={editorDivRef} onKeyDown={onKeyDown}></div>
-      <div id='save-section'>
-        <label id='save-label'>
-          このUserCSSを保存するドメイン
-          <br />
-          <input
-            id='hostname-input'
-            placeholder='google.com'
-            type='text'
-            size={35}
-            value={hostnameInputValue}
-            onChange={onHostnameInputChange}
-          />
-        </label>
-        <button
-          id='save-button'
-          className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
-          disabled={hostnameInputValue.length === 0}
-          onClick={onSaveButtonClick}
-        >
-          {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
-        </button>
-      </div>
-    </div>
+    </>
   );
 };
 
