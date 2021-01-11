@@ -59,12 +59,18 @@ export const downloadDataAsJson = (): void => {
   aTag.click();
 };
 
-export const importDataToLocalStorage = (str: string): void => {
-  const data: Data = JSON.parse(str);
+export const importDataToLocalStorage = (str: string): boolean => {
+  let data: Data;
+  try {
+    data = JSON.parse(str);
+  } catch {
+    return false;
+  }
   const { hostnameSet, lastSelectedHostname, styleSet } = data;
   localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
   localStorage.setItem(LAST_SELECTED_HOST_NAME, lastSelectedHostname);
   Object.keys(hostnameSet).map(hostname => {
     localStorage.setItem(hostname, styleSet[hostname]);
   });
+  return true;
 };

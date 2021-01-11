@@ -197,11 +197,14 @@ const App: React.FC = () => {
     importInputRef.current?.files
       ?.item(0)
       ?.text()
-      .then(str => importDataToLocalStorage(str));
-
-    // しました状態にする
-    setImportButtonDone(true);
-    setImportButtonDisabled(true);
+      .then(str => {
+        const isSuccess = importDataToLocalStorage(str);
+        if (isSuccess) {
+          // しました状態にする
+          setImportButtonDone(true);
+          setImportButtonDisabled(true);
+        }
+      });
   }, [importInputRef]);
 
   const onExportButtonClick = useCallback(() => {
