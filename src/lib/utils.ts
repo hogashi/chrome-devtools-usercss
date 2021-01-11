@@ -4,6 +4,12 @@ import {
   LAST_SELECTED_HOST_NAME,
 } from './constants';
 
+type Data = {
+  hostnameSet: HostnameSet;
+  lastSelectedHostname: string;
+  styleSet: { [hostname: string]: string };
+};
+
 const datetimeStr = (): string => {
   const date = new Date();
   return (
@@ -40,7 +46,7 @@ export const downloadDataAsJson = (): void => {
     styleSet[hostname] = getLocalStorageItem(hostname);
   });
 
-  const data = {
+  const data: Data = {
     hostnameSet,
     lastSelectedHostname,
     styleSet,
@@ -54,7 +60,8 @@ export const downloadDataAsJson = (): void => {
 };
 
 export const importDataToLocalStorage = (str: string): void => {
-  const { hostnameSet, lastSelectedHostname, styleSet } = JSON.parse(str);
+  const data: Data = JSON.parse(str);
+  const { hostnameSet, lastSelectedHostname, styleSet } = data;
   localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
   localStorage.setItem(LAST_SELECTED_HOST_NAME, lastSelectedHostname);
   Object.keys(hostnameSet).map(hostname => {
