@@ -21,12 +21,12 @@ self.MonacoEnvironment = {
   },
 };
 
-type HostnameSet = {
+export type HostnameSet = {
   [hostname: string]: true;
 };
 
-const HOSTNAME_SET = 'hostnameSet';
-const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+export const HOSTNAME_SET = 'hostnameSet';
+export const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 const WORD_WRAP = 'wordWrap';
 const WORD_WRAP_ON = 'on';
 const WORD_WRAP_OFF = 'off';
