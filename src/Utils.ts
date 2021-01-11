@@ -40,3 +40,12 @@ export const downloadDataAsJson = (): void => {
   aTag.download = `chrome-usercss-hogashi-${datetimeStr()}.json`;
   aTag.click();
 };
+
+export const importDataToLocalStorage = (str: string): void => {
+  const { hostnameSet, lastSelectedHostname, styleSet } = JSON.parse(str);
+  localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
+  localStorage.setItem(LAST_SELECTED_HOST_NAME, lastSelectedHostname);
+  Object.keys(hostnameSet).map(hostname => {
+    localStorage.setItem(hostname, styleSet[hostname]);
+  });
+};
