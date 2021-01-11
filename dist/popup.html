@@ -54,6 +54,47 @@ select {
   background-color: white;
   color: #4d4d4d;
 }
+#root > hr {
+  margin: 15px 0;
+}
+#export-import-container {
+  margin-top: 10px;
+}
+#export-import-container summary {
+  cursor: pointer;
+}
+#export-import-container button {
+  width: 130px;
+  height: 2.3em;
+  border: none;
+  background-color: #4d4d4d;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#export-import-container button.done {
+  border: 2px solid #4d4d4d;
+  background-color: white;
+  color: #4d4d4d;
+}
+button[disabled] {
+  cursor: default !important;
+  opacity: 0.6;
+}
+#export-import-container > div {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin: 10px 10px 0;
+}
+#export-import-container hr {
+  margin: 10px 10px 0;
+  border-color: rgb(255 255 255 / 50%);
+}
+#export-import-container input[type="file"] {
+  padding: 0;
+  cursor: pointer;
+}
 </style>
 </head>
 <body>

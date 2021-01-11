@@ -41,6 +41,12 @@ const SAVE_BUTTON_INIT_VALUE = '保存';
 const SAVE_BUTTON_SAVED_VALUE = 'しました';
 const SAVE_BUTTON_SAVED_CLASS_NAME = 'saved';
 
+const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
+const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
+const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
+const EXPORT_BUTTON_DONE_VALUE = 'しました';
+const EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME = 'done';
+
 const initHostnameSet: HostnameSet = JSON.parse(
   localStorage.getItem(HOSTNAME_SET) || '{}'
 );
@@ -69,6 +75,10 @@ const App: React.FC = () => {
   const [saveButtonSaved, setSaveButtonSaved] = useState(false);
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
   const importInputRef = useRef<HTMLInputElement>(null);
+  const [importButtonDisabled, setImportButtonDisabled] = useState(true);
+  const [importButtonDone, setImportButtonDone] = useState(false);
+  const [exportButtonDone, setExportButtonDone] = useState(false);
+  const [exportButtonTimer, setExportButtonTimer] = useState<number>();
 
   // エディタの初期化
   useEffect(() => {
@@ -181,14 +191,34 @@ const App: React.FC = () => {
     setHostname(newHostname);
   }, [editor, hostnameSet, hostnameInputValue, saveButtonTimer]);
 
+  const onImportInputChange = useCallback(() => {
+    setImportButtonDisabled(!importInputRef.current?.files?.item(0));
+  }, [importInputRef]);
+
   const onImportButtonClick = useCallback(() => {
     importInputRef.current?.files
       ?.item(0)
       ?.text()
       .then(str => importDataToLocalStorage(str));
+
+    // しました状態にする
+    setImportButtonDone(true);
+    setImportButtonDisabled(true);
   }, [importInputRef]);
 
-  const onExportButtonClick = useCallback(() => downloadDataAsJson(), []);
+  const onExportButtonClick = useCallback(() => {
+    downloadDataAsJson();
+
+    // しました状態にする
+    setExportButtonDone(true);
+    // ちょっとしたらしました状態戻す
+    clearTimeout(exportButtonTimer);
+    setExportButtonTimer(
+      window.setTimeout(() => {
+        setExportButtonDone(false);
+      }, 1000)
+    );
+  }, []);
 
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
@@ -254,26 +284,50 @@ const App: React.FC = () => {
           <button
             id='save-button'
             className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
-            disabled={hostnameInputValue.length === 0}
+            disabled={hostnameInputValue.length === 0 || importButtonDone}
             onClick={onSaveButtonClick}
           >
             {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
           </button>
         </div>
       </div>
-      <div id='export-import-container'>
-        <div id='import'>
-          インポート
+      <hr />
+      <details id='export-import-container'>
+        <summary>JSONファイルでインポート/エクスポート</summary>
+        <div>
           <label>
-            ファイルをアップロードして
-            <input type='file' ref={importInputRef} />
-            <button onClick={onImportButtonClick}>インポートする</button>
+            <input
+              type='file'
+              ref={importInputRef}
+              onChange={onImportInputChange}
+            />
           </label>
+          <button
+            className={
+              importButtonDone ? EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME : ''
+            }
+            disabled={importButtonDisabled}
+            onClick={onImportButtonClick}
+          >
+            {importButtonDone
+              ? IMPORT_BUTTON_DONE_VALUE
+              : IMPORT_BUTTON_INIT_VALUE}
+          </button>
         </div>
-        <div id='export'>
-          <button onClick={onExportButtonClick}>エクスポートする</button>
+        <hr />
+        <div>
+          <button
+            className={
+              exportButtonDone ? EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME : ''
+            }
+            onClick={onExportButtonClick}
+          >
+            {exportButtonDone
+              ? EXPORT_BUTTON_DONE_VALUE
+              : EXPORT_BUTTON_INIT_VALUE}
+          </button>
         </div>
-      </div>
+      </details>
     </>
   );
 };
