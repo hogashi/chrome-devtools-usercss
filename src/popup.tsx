@@ -2,6 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
+import { HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from './lib/constants';
+import {
+  getLocalStorageItem,
+  getHostnameSet,
+  importDataToLocalStorage,
+  downloadDataAsJson,
+} from './lib/utils';
+
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
   getWorkerUrl: function (_workerId: string, label: string) {
@@ -21,12 +29,6 @@ self.MonacoEnvironment = {
   },
 };
 
-type HostnameSet = {
-  [hostname: string]: true;
-};
-
-const HOSTNAME_SET = 'hostnameSet';
-const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 const WORD_WRAP = 'wordWrap';
 const WORD_WRAP_ON = 'on';
 const WORD_WRAP_OFF = 'off';
@@ -39,18 +41,22 @@ const SAVE_BUTTON_INIT_VALUE = '保存';
 const SAVE_BUTTON_SAVED_VALUE = 'しました';
 const SAVE_BUTTON_SAVED_CLASS_NAME = 'saved';
 
-const initHostnameSet: HostnameSet = JSON.parse(
-  localStorage.getItem(HOSTNAME_SET) || '{}'
-);
+const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
+const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
+const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
+const EXPORT_BUTTON_DONE_VALUE = 'しました';
+const EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME = 'done';
+
+const initHostnameSet = getHostnameSet();
 const lastSelectedHostname = (() => {
-  const lastSelected = localStorage.getItem(LAST_SELECTED_HOST_NAME) || '';
+  const lastSelected = getLocalStorageItem(LAST_SELECTED_HOST_NAME);
   return initHostnameSet[lastSelected] ? lastSelected : '';
 })();
 const setLastSelectedHostname = (hostname: string): void =>
   localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
 // 行の折返し(デフォルトでON)
 const initwordWrapChecked: boolean =
-  localStorage.getItem(WORD_WRAP) !== WORD_WRAP_OFF;
+  getLocalStorageItem(WORD_WRAP) !== WORD_WRAP_OFF;
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
@@ -66,6 +72,11 @@ const App: React.FC = () => {
   const [hostnameInputValue, setHostnameInputValue] = useState('');
   const [saveButtonSaved, setSaveButtonSaved] = useState(false);
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importButtonDisabled, setImportButtonDisabled] = useState(true);
+  const [importButtonDone, setImportButtonDone] = useState(false);
+  const [exportButtonDone, setExportButtonDone] = useState(false);
+  const [exportButtonTimer, setExportButtonTimer] = useState<number>();
 
   // エディタの初期化
   useEffect(() => {
@@ -111,7 +122,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const style = localStorage.getItem(hostname) || '';
+    const style = getLocalStorageItem(hostname);
     editor?.setValue(style);
   }, [editor, hostname]);
 
@@ -178,6 +189,38 @@ const App: React.FC = () => {
     setHostname(newHostname);
   }, [editor, hostnameSet, hostnameInputValue, saveButtonTimer]);
 
+  const onImportInputChange = useCallback(() => {
+    setImportButtonDisabled(!importInputRef.current?.files?.item(0));
+  }, [importInputRef]);
+
+  const onImportButtonClick = useCallback(() => {
+    importInputRef.current?.files
+      ?.item(0)
+      ?.text()
+      .then(str => {
+        const isSuccess = importDataToLocalStorage(str);
+        if (isSuccess) {
+          // しました状態にする
+          setImportButtonDone(true);
+          setImportButtonDisabled(true);
+        }
+      });
+  }, [importInputRef]);
+
+  const onExportButtonClick = useCallback(() => {
+    downloadDataAsJson();
+
+    // しました状態にする
+    setExportButtonDone(true);
+    // ちょっとしたらしました状態戻す
+    clearTimeout(exportButtonTimer);
+    setExportButtonTimer(
+      window.setTimeout(() => {
+        setExportButtonDone(false);
+      }, 1000)
+    );
+  }, []);
+
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hn => {
@@ -201,53 +244,92 @@ const App: React.FC = () => {
   );
 
   return (
-    <div id='container'>
-      <div>
-        <label>
-          ドメインを選んでUserCSSを読み込む
-          <br />
-          <select id='hostname-selector' onChange={onHostnameSelectChange}>
-            <option value=''>選択...</option>
-            {hostNamesOptions}
-          </select>
-        </label>
+    <>
+      <div id='container'>
+        <div>
+          <label>
+            ドメインを選んでUserCSSを読み込む
+            <br />
+            <select id='hostname-selector' onChange={onHostnameSelectChange}>
+              <option value=''>選択...</option>
+              {hostNamesOptions}
+            </select>
+          </label>
+        </div>
+        <div id='editor-label'>
+          <span style={{ flex: '0 1 auto' }}>UserCSS</span>
+          <label style={{ flex: '0 1 auto' }}>
+            <input
+              id='word-wrap'
+              type='checkbox'
+              checked={wordWrapChecked}
+              onChange={onWordWrapChanged}
+            />
+            行の折り返し
+          </label>
+        </div>
+        <div id='editor' ref={editorDivRef} onKeyDown={onKeyDown}></div>
+        <div id='save-section'>
+          <label id='save-label'>
+            このUserCSSを保存するドメイン
+            <br />
+            <input
+              id='hostname-input'
+              placeholder='google.com'
+              type='text'
+              size={35}
+              value={hostnameInputValue}
+              onChange={onHostnameInputChange}
+            />
+          </label>
+          <button
+            id='save-button'
+            className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
+            disabled={hostnameInputValue.length === 0 || importButtonDone}
+            onClick={onSaveButtonClick}
+          >
+            {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
+          </button>
+        </div>
       </div>
-      <div id='editor-label'>
-        <span style={{ flex: '0 1 auto' }}>UserCSS</span>
-        <label style={{ flex: '0 1 auto' }}>
-          <input
-            id='word-wrap'
-            type='checkbox'
-            checked={wordWrapChecked}
-            onChange={onWordWrapChanged}
-          />
-          行の折り返し
-        </label>
-      </div>
-      <div id='editor' ref={editorDivRef} onKeyDown={onKeyDown}></div>
-      <div id='save-section'>
-        <label id='save-label'>
-          このUserCSSを保存するドメイン
-          <br />
-          <input
-            id='hostname-input'
-            placeholder='google.com'
-            type='text'
-            size={35}
-            value={hostnameInputValue}
-            onChange={onHostnameInputChange}
-          />
-        </label>
-        <button
-          id='save-button'
-          className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
-          disabled={hostnameInputValue.length === 0}
-          onClick={onSaveButtonClick}
-        >
-          {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
-        </button>
-      </div>
-    </div>
+      <hr />
+      <details id='export-import-container'>
+        <summary>JSONファイルでインポート/エクスポート</summary>
+        <div>
+          <label>
+            <input
+              type='file'
+              ref={importInputRef}
+              onChange={onImportInputChange}
+            />
+          </label>
+          <button
+            className={
+              importButtonDone ? EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME : ''
+            }
+            disabled={importButtonDisabled}
+            onClick={onImportButtonClick}
+          >
+            {importButtonDone
+              ? IMPORT_BUTTON_DONE_VALUE
+              : IMPORT_BUTTON_INIT_VALUE}
+          </button>
+        </div>
+        <hr />
+        <div>
+          <button
+            className={
+              exportButtonDone ? EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME : ''
+            }
+            onClick={onExportButtonClick}
+          >
+            {exportButtonDone
+              ? EXPORT_BUTTON_DONE_VALUE
+              : EXPORT_BUTTON_INIT_VALUE}
+          </button>
+        </div>
+      </details>
+    </>
   );
 };
 
