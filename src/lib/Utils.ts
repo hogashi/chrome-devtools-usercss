@@ -1,4 +1,4 @@
-import { HostnameSet, HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from './popup';
+import { HostnameSet, HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from '../popup';
 
 const datetimeStr = (): string => {
   const date = new Date();

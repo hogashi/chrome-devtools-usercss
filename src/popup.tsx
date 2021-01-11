@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-import { importDataToLocalStorage, downloadDataAsJson } from './Utils';
+import { importDataToLocalStorage, downloadDataAsJson } from './lib/Utils';
 
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
