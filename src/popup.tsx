@@ -2,7 +2,13 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-import { importDataToLocalStorage, downloadDataAsJson } from './lib/Utils';
+import { HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from './lib/Constants';
+import {
+  getLocalStorageItem,
+  getHostnameSet,
+  importDataToLocalStorage,
+  downloadDataAsJson,
+} from './lib/Utils';
 
 // @ts-expect-error: MonacoEnvironment is undefined in window
 self.MonacoEnvironment = {
@@ -23,12 +29,6 @@ self.MonacoEnvironment = {
   },
 };
 
-export type HostnameSet = {
-  [hostname: string]: true;
-};
-
-export const HOSTNAME_SET = 'hostnameSet';
-export const LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 const WORD_WRAP = 'wordWrap';
 const WORD_WRAP_ON = 'on';
 const WORD_WRAP_OFF = 'off';
@@ -47,18 +47,16 @@ const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
 const EXPORT_BUTTON_DONE_VALUE = 'しました';
 const EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME = 'done';
 
-const initHostnameSet: HostnameSet = JSON.parse(
-  localStorage.getItem(HOSTNAME_SET) || '{}'
-);
+const initHostnameSet = getHostnameSet();
 const lastSelectedHostname = (() => {
-  const lastSelected = localStorage.getItem(LAST_SELECTED_HOST_NAME) || '';
+  const lastSelected = getLocalStorageItem(LAST_SELECTED_HOST_NAME);
   return initHostnameSet[lastSelected] ? lastSelected : '';
 })();
 const setLastSelectedHostname = (hostname: string): void =>
   localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
 // 行の折返し(デフォルトでON)
 const initwordWrapChecked: boolean =
-  localStorage.getItem(WORD_WRAP) !== WORD_WRAP_OFF;
+  getLocalStorageItem(WORD_WRAP) !== WORD_WRAP_OFF;
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
@@ -124,7 +122,7 @@ const App: React.FC = () => {
       return;
     }
 
-    const style = localStorage.getItem(hostname) || '';
+    const style = getLocalStorageItem(hostname);
     editor?.setValue(style);
   }, [editor, hostname]);
 

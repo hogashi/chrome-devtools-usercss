@@ -1,4 +1,8 @@
-import { HostnameSet, HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from '../popup';
+import {
+  HostnameSet,
+  HOSTNAME_SET,
+  LAST_SELECTED_HOST_NAME,
+} from './Constants';
 
 const datetimeStr = (): string => {
   const date = new Date();
@@ -16,16 +20,24 @@ const datetimeStr = (): string => {
   );
 };
 
+export const getLocalStorageItem = (key: string, defaultValue = ''): string => {
+  return localStorage.getItem(key) || defaultValue;
+};
+export const getHostnameSet = (): HostnameSet => {
+  try {
+    return JSON.parse(getLocalStorageItem(HOSTNAME_SET, '{}'));
+  } catch {
+    return {};
+  }
+};
+
 export const downloadDataAsJson = (): void => {
-  const hostnameSet: HostnameSet = JSON.parse(
-    localStorage.getItem(HOSTNAME_SET) || '{}'
-  );
-  const lastSelectedHostname =
-    localStorage.getItem(LAST_SELECTED_HOST_NAME) || '';
+  const hostnameSet = getHostnameSet();
+  const lastSelectedHostname = getLocalStorageItem(LAST_SELECTED_HOST_NAME);
 
   const styleSet: { [hostname: string]: string } = {};
   Object.keys(hostnameSet).forEach(hostname => {
-    styleSet[hostname] = localStorage.getItem(hostname) || '';
+    styleSet[hostname] = getLocalStorageItem(hostname);
   });
 
   const data = {
