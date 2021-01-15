@@ -15,8 +15,39 @@ input, select {
 select {
   max-width: 100%;
 }
+button {
+  height: 2.3em;
+  border: none;
+  background-color: #4d4d4d;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button.done {
+  border: 2px solid #4d4d4d;
+  background-color: white;
+  color: #4d4d4d;
+}
+button[disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
 #root, #container {
   width: 100%;
+}
+#hostname-selector-container {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+#hostname-selector-container > div {
+  flex: 0 1 auto;
+}
+#hostname-selector-container button {
+  width: 80px;
+}
+div#remove-hostname {
+  margin-left: 30px;
 }
 #editor-label {
   margin-top: 3px;
@@ -42,20 +73,9 @@ select {
 }
 #save-button {
   flex: 0 1 80px;
-  height: 2.3em;
-  border: none;
-  background-color: #4d4d4d;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
 }
-#save-button.saved {
-  border: 2px solid #4d4d4d;
-  background-color: white;
-  color: #4d4d4d;
-}
-#root > hr {
-  margin: 15px 0;
+hr.root-hr {
+  margin: 10px 0 3px;
 }
 #export-import-container {
   margin-top: 10px;
@@ -65,21 +85,6 @@ select {
 }
 #export-import-container button {
   width: 130px;
-  height: 2.3em;
-  border: none;
-  background-color: #4d4d4d;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-#export-import-container button.done {
-  border: 2px solid #4d4d4d;
-  background-color: white;
-  color: #4d4d4d;
-}
-button[disabled] {
-  cursor: default !important;
-  opacity: 0.6;
 }
 #export-import-container > div {
   display: flex;
