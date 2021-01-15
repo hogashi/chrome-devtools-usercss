@@ -38,14 +38,13 @@ const PLACEHOLDER = `body {
 }`;
 
 const SAVE_BUTTON_INIT_VALUE = '保存';
-const SAVE_BUTTON_SAVED_VALUE = 'しました';
-const SAVE_BUTTON_SAVED_CLASS_NAME = 'saved';
-
+const SAVE_BUTTON_DONE_VALUE = 'しました';
 const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
 const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
 const EXPORT_BUTTON_DONE_VALUE = 'しました';
-const EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME = 'done';
+
+const BUTTON_DONE_CLASS_NAME = 'done';
 
 const initHostnameSet = getHostnameSet();
 const lastSelectedHostname = (() => {
@@ -70,7 +69,7 @@ const App: React.FC = () => {
   ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorDivRef = useRef<HTMLDivElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
-  const [saveButtonSaved, setSaveButtonSaved] = useState(false);
+  const [saveButtonDone, setSaveButtonDone] = useState(false);
   const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importButtonDisabled, setImportButtonDisabled] = useState(true);
@@ -176,12 +175,12 @@ const App: React.FC = () => {
     localStorage.setItem(newHostname, newValue);
 
     // 保存しました状態にする
-    setSaveButtonSaved(true);
+    setSaveButtonDone(true);
     // ちょっとしたら保存しました状態戻す
     clearTimeout(saveButtonTimer);
     setSaveButtonTimer(
       window.setTimeout(() => {
-        setSaveButtonSaved(false);
+        setSaveButtonDone(false);
       }, 1000)
     );
 
@@ -284,11 +283,11 @@ const App: React.FC = () => {
           </label>
           <button
             id='save-button'
-            className={saveButtonSaved ? SAVE_BUTTON_SAVED_CLASS_NAME : ''}
+            className={saveButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
             disabled={hostnameInputValue.length === 0 || importButtonDone}
             onClick={onSaveButtonClick}
           >
-            {saveButtonSaved ? SAVE_BUTTON_SAVED_VALUE : SAVE_BUTTON_INIT_VALUE}
+            {saveButtonDone ? SAVE_BUTTON_DONE_VALUE : SAVE_BUTTON_INIT_VALUE}
           </button>
         </div>
       </div>
@@ -304,9 +303,7 @@ const App: React.FC = () => {
             />
           </label>
           <button
-            className={
-              importButtonDone ? EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME : ''
-            }
+            className={importButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
             disabled={importButtonDisabled}
             onClick={onImportButtonClick}
           >
@@ -318,9 +315,7 @@ const App: React.FC = () => {
         <hr />
         <div>
           <button
-            className={
-              exportButtonDone ? EXPORT_IMPORT_BUTTON_DONE_CLASS_NAME : ''
-            }
+            className={exportButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
             onClick={onExportButtonClick}
           >
             {exportButtonDone
