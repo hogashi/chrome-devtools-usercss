@@ -2,7 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-import { HOSTNAME_SET, LAST_SELECTED_HOST_NAME } from './lib/constants';
+import {
+  HostnameSet,
+  HOSTNAME_SET,
+  LAST_SELECTED_HOST_NAME,
+} from './lib/constants';
 import {
   getLocalStorageItem,
   getHostnameSet,
@@ -37,6 +41,8 @@ const PLACEHOLDER = `body {
   color: magenta;
 }`;
 
+const REMOVE_HOSTNAME_BUTTON_INIT_VALUE = '削除';
+const REMOVE_HOSTNAME_BUTTON_DONE_VALUE = 'しました';
 const SAVE_BUTTON_INIT_VALUE = '保存';
 const SAVE_BUTTON_DONE_VALUE = 'しました';
 const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
@@ -60,6 +66,13 @@ const initwordWrapChecked: boolean =
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
+  const [removeHostnameButtonDone, setRemoveHostnameButtonDone] = useState(
+    false
+  );
+  const [
+    removeHostnameButtonTimer,
+    setRemoveHostnameButtonTimer,
+  ] = useState<number>();
   const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(
     initwordWrapChecked
   );
@@ -154,6 +167,30 @@ const App: React.FC = () => {
     []
   );
 
+  // hostname削除ボタンを押したとき
+  const onRemoveHostnameButtonClick = useCallback((): void => {
+    const newHostnameSet: HostnameSet = {};
+    Object.keys(hostnameSet).forEach(h => {
+      if (h === hostname) {
+        return;
+      }
+      newHostnameSet[h] = hostnameSet[h];
+    });
+    setHostnameSet(newHostnameSet);
+    // デフォルトの選択肢に戻す
+    setHostname('');
+
+    // ボタンをしました状態にする
+    setRemoveHostnameButtonDone(true);
+    // ちょっとしたらしました状態戻す
+    clearTimeout(removeHostnameButtonTimer);
+    setRemoveHostnameButtonTimer(
+      window.setTimeout(() => {
+        setRemoveHostnameButtonDone(false);
+      }, 1000)
+    );
+  }, [hostnameSet, hostname]);
+
   // 保存ボタンを押したとき
   const onSaveButtonClick = useCallback((): void => {
     if (!editor) {
@@ -245,16 +282,30 @@ const App: React.FC = () => {
   return (
     <>
       <div id='container'>
-        <div>
-          <label>
-            ドメインを選んでUserCSSを読み込む
-            <br />
-            <select id='hostname-selector' onChange={onHostnameSelectChange}>
-              <option value=''>選択...</option>
-              {hostNamesOptions}
-            </select>
-          </label>
+        <div id='hostname-selector-container'>
+          <div>
+            <label>
+              ドメインを選んでUserCSSを読み込む
+              <br />
+              <select id='hostname-selector' onChange={onHostnameSelectChange}>
+                <option value=''>選択...</option>
+                {hostNamesOptions}
+              </select>
+            </label>
+          </div>
+          <div id='remove-hostname'>
+            ドメインを
+            <button
+              className={removeHostnameButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
+              onClick={onRemoveHostnameButtonClick}
+            >
+              {removeHostnameButtonDone
+                ? REMOVE_HOSTNAME_BUTTON_DONE_VALUE
+                : REMOVE_HOSTNAME_BUTTON_INIT_VALUE}
+            </button>
+          </div>
         </div>
+        <hr className='root-hr' />
         <div id='editor-label'>
           <span style={{ flex: '0 1 auto' }}>UserCSS</span>
           <label style={{ flex: '0 1 auto' }}>
@@ -291,7 +342,7 @@ const App: React.FC = () => {
           </button>
         </div>
       </div>
-      <hr />
+      <hr className='root-hr' />
       <details id='export-import-container'>
         <summary>JSONファイルでインポート/エクスポート</summary>
         <div>
