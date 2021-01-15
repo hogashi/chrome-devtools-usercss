@@ -15,6 +15,23 @@ input, select {
 select {
   max-width: 100%;
 }
+button {
+  height: 2.3em;
+  border: none;
+  background-color: #4d4d4d;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+button.done {
+  border: 2px solid #4d4d4d;
+  background-color: white;
+  color: #4d4d4d;
+}
+button[disabled] {
+  cursor: default;
+  opacity: 0.6;
+}
 #root, #container {
   width: 100%;
 }
@@ -42,17 +59,6 @@ select {
 }
 #save-button {
   flex: 0 1 80px;
-  height: 2.3em;
-  border: none;
-  background-color: #4d4d4d;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-#save-button.saved {
-  border: 2px solid #4d4d4d;
-  background-color: white;
-  color: #4d4d4d;
 }
 #root > hr {
   margin: 15px 0;
@@ -65,21 +71,6 @@ select {
 }
 #export-import-container button {
   width: 130px;
-  height: 2.3em;
-  border: none;
-  background-color: #4d4d4d;
-  color: white;
-  border-radius: 4px;
-  cursor: pointer;
-}
-#export-import-container button.done {
-  border: 2px solid #4d4d4d;
-  background-color: white;
-  color: #4d4d4d;
-}
-button[disabled] {
-  cursor: default !important;
-  opacity: 0.6;
 }
 #export-import-container > div {
   display: flex;
