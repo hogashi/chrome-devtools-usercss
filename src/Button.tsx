@@ -31,7 +31,7 @@ export const Button = React.forwardRef<HTMLButtonElement, Props>(
           setIsDone(false);
         }, DONE_CLEAR_TIME_MS)
       );
-    }, [timer]);
+    }, [onClick, timer]);
 
     const value = useMemo(() => {
       return isDone ? BUTTON_DONE_VALUE : initValue;
