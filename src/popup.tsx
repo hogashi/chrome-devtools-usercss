@@ -193,6 +193,7 @@ const App: React.FC = () => {
   }, [editor, hostnameSet, hostnameInputValue]);
 
   const onImportInputChange = useCallback(() => {
+    // ファイルないとき押せない
     setImportButtonDisabled(!importInputRef.current?.files?.item(0));
   }, [importInputRef]);
 

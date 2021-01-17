@@ -12,10 +12,12 @@ interface Props {
   onClick: () => void;
 }
 
+// 拡張機能のページはReactDevTools無力なのでeslint無視する
+// eslint-disable-next-line react/display-name
 export const Button = React.forwardRef<HTMLButtonElement, Props>(
-  // React.forwardRefで型はついてるはずなのでeslintを無視する
+  // React.forwardRefで型はついてるはずなのでeslint無視する
   // eslint-disable-next-line react/prop-types
-  function ButtonComponent({ id, disabledWhen, initValue, onClick }, ref) {
+  ({ id, disabledWhen, initValue, onClick }, ref) => {
     const [timer, setTimer] = useState<number>();
     const [isDone, setIsDone] = useState(false);
 
