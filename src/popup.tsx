@@ -9,6 +9,7 @@ import {
   HOSTNAME_SET,
   LAST_SELECTED_HOST_NAME,
 } from './lib/constants';
+import { useWordWrapChecked } from './lib/hooks';
 import {
   getLocalStorageItem,
   getHostnameSet,
@@ -35,10 +36,6 @@ self.MonacoEnvironment = {
   },
 };
 
-const WORD_WRAP = 'wordWrap';
-const WORD_WRAP_ON = 'on';
-const WORD_WRAP_OFF = 'off';
-
 const PLACEHOLDER = `body {
   color: magenta;
 }`;
@@ -56,21 +53,16 @@ const lastSelectedHostname = (() => {
 })();
 const setLastSelectedHostname = (hostname: string): void =>
   localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
-// 行の折返し(デフォルトでON)
-const initwordWrapChecked: boolean =
-  getLocalStorageItem(WORD_WRAP) !== WORD_WRAP_OFF;
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
-  const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(
-    initwordWrapChecked
-  );
   const [
     editor,
     setEditor,
   ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorDivRef = useRef<HTMLDivElement>(null);
+  const { wordWrapChecked, onWordWrapChanged } = useWordWrapChecked(editor);
   const saveButtonRef = useRef<HTMLButtonElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -94,13 +86,6 @@ const App: React.FC = () => {
     });
     setEditor(newEditor);
   }, []);
-
-  // 行の折返しの更新
-  useEffect(() => {
-    const wordWrap = wordWrapChecked ? WORD_WRAP_ON : WORD_WRAP_OFF;
-    editor?.updateOptions({ wordWrap });
-    localStorage.setItem(WORD_WRAP, wordWrap);
-  }, [editor, wordWrapChecked]);
 
   // hostnameたちの更新
   useEffect(() => {
@@ -142,14 +127,6 @@ const App: React.FC = () => {
   const onHostnameInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
       setHostnameInputValue(event.target.value);
-    },
-    []
-  );
-
-  // 行の折返しのcheckboxを変えたとき
-  const onWordWrapChanged = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>): void => {
-      setWordWrapChecked(event.target.checked);
     },
     []
   );
