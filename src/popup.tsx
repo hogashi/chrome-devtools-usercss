@@ -9,7 +9,7 @@ import {
   HOSTNAME_SET,
   LAST_SELECTED_HOST_NAME,
 } from './lib/constants';
-import { useWordWrapChecked } from './lib/hooks';
+import { useSaveOnCtrlS, useWordWrapChecked } from './lib/hooks';
 import {
   getLocalStorageItem,
   getHostnameSet,
@@ -68,6 +68,8 @@ const App: React.FC = () => {
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importButtonDisabled, setImportButtonDisabled] = useState(true);
   const [importButtonDone, setImportButtonDone] = useState(false);
+
+  useSaveOnCtrlS(saveButtonRef);
 
   // エディタの初期化
   useEffect(() => {
@@ -202,15 +204,6 @@ const App: React.FC = () => {
     );
   });
 
-  // キー押したとき
-  const onKeyDown = useCallback((event: React.KeyboardEvent) => {
-    if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      event.stopPropagation();
-      saveButtonRef.current?.click();
-    }
-  }, []);
-
   return (
     <>
       <div id='container'>
@@ -246,7 +239,7 @@ const App: React.FC = () => {
             行の折り返し
           </label>
         </div>
-        <div id='editor' ref={editorDivRef} onKeyDown={onKeyDown}></div>
+        <div id='editor' ref={editorDivRef}></div>
         <div id='save-section'>
           <label id='save-label'>
             このUserCSSを保存するドメイン

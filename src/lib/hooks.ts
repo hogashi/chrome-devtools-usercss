@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { RefObject, useCallback, useEffect, useState } from 'react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 import { getLocalStorageItem } from './utils';
@@ -40,4 +40,22 @@ export const useWordWrapChecked = (
     wordWrapChecked,
     onWordWrapChanged,
   };
+};
+
+// C-sで保存する
+export const useSaveOnCtrlS = (
+  saveButtonRef: RefObject<HTMLButtonElement>
+): void => {
+  useEffect(() => {
+    if (!saveButtonRef.current) {
+      return;
+    }
+    document.addEventListener('keydown', (event: KeyboardEvent) => {
+      if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        event.stopPropagation();
+        saveButtonRef.current?.click();
+      }
+    });
+  }, [saveButtonRef]);
 };
