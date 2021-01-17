@@ -12,41 +12,41 @@ interface Props {
   onClick: () => void;
 }
 
-export const Button = ({
-  id,
-  disabledWhen,
-  initValue,
-  onClick,
-}: Props): JSX.Element => {
-  const [timer, setTimer] = useState<number>();
-  const [isDone, setIsDone] = useState(false);
+export const Button = React.forwardRef<HTMLButtonElement, Props>(
+  // React.forwardRefで型はついてるはずなのでeslintを無視する
+  // eslint-disable-next-line react/prop-types
+  function ButtonComponent({ id, disabledWhen, initValue, onClick }, ref) {
+    const [timer, setTimer] = useState<number>();
+    const [isDone, setIsDone] = useState(false);
 
-  const onButtonClick = useCallback(() => {
-    onClick();
+    const onButtonClick = useCallback(() => {
+      onClick();
 
-    // しました状態にする
-    setIsDone(true);
-    // ちょっとしたらしました状態戻す
-    clearTimeout(timer);
-    setTimer(
-      window.setTimeout(() => {
-        setIsDone(false);
-      }, DONE_CLEAR_TIME_MS)
+      // しました状態にする
+      setIsDone(true);
+      // ちょっとしたらしました状態戻す
+      clearTimeout(timer);
+      setTimer(
+        window.setTimeout(() => {
+          setIsDone(false);
+        }, DONE_CLEAR_TIME_MS)
+      );
+    }, [timer]);
+
+    const value = useMemo(() => {
+      return isDone ? BUTTON_DONE_VALUE : initValue;
+    }, [isDone]);
+
+    return (
+      <button
+        id={id}
+        disabled={disabledWhen || isDone}
+        ref={ref}
+        className={isDone ? BUTTON_DONE_CLASS_NAME : ''}
+        onClick={onButtonClick}
+      >
+        {value}
+      </button>
     );
-  }, [timer]);
-
-  const value = useMemo(() => {
-    return isDone ? BUTTON_DONE_VALUE : initValue;
-  }, [isDone]);
-
-  return (
-    <button
-      id={id}
-      disabled={disabledWhen || isDone}
-      className={isDone ? BUTTON_DONE_CLASS_NAME : ''}
-      onClick={onButtonClick}
-    >
-      {value}
-    </button>
-  );
-};
+  }
+);

@@ -71,6 +71,7 @@ const App: React.FC = () => {
     setEditor,
   ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorDivRef = useRef<HTMLDivElement>(null);
+  const saveButtonRef = useRef<HTMLButtonElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importButtonDisabled, setImportButtonDisabled] = useState(true);
@@ -224,16 +225,13 @@ const App: React.FC = () => {
   });
 
   // キー押したとき
-  const onKeyDown = useCallback(
-    (event: React.KeyboardEvent) => {
-      if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault();
-        event.stopPropagation();
-        onSaveButtonClick();
-      }
-    },
-    [onSaveButtonClick]
-  );
+  const onKeyDown = useCallback((event: React.KeyboardEvent) => {
+    if (event.key === 's' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      event.stopPropagation();
+      saveButtonRef.current?.click();
+    }
+  }, []);
 
   return (
     <>
@@ -287,6 +285,7 @@ const App: React.FC = () => {
           <Button
             id='save-button'
             disabledWhen={hostnameInputValue.length === 0}
+            ref={saveButtonRef}
             initValue={SAVE_BUTTON_INIT_VALUE}
             onClick={onSaveButtonClick}
           />
