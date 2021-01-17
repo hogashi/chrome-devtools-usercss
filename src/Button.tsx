@@ -1,5 +1,4 @@
 import React, { useCallback, useMemo, useState } from 'react';
-// import ReactDOM from 'react-dom';
 
 export const BUTTON_DONE_CLASS_NAME = 'done';
 const BUTTON_DONE_VALUE = 'しました';
