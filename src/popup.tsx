@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
+import { Button, BUTTON_DONE_CLASS_NAME } from './Button';
+
 import {
   HostnameSet,
   HOSTNAME_SET,
@@ -42,15 +44,10 @@ const PLACEHOLDER = `body {
 }`;
 
 const REMOVE_HOSTNAME_BUTTON_INIT_VALUE = '削除';
-const REMOVE_HOSTNAME_BUTTON_DONE_VALUE = 'しました';
 const SAVE_BUTTON_INIT_VALUE = '保存';
-const SAVE_BUTTON_DONE_VALUE = 'しました';
 const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
 const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
-const EXPORT_BUTTON_DONE_VALUE = 'しました';
-
-const BUTTON_DONE_CLASS_NAME = 'done';
 
 const initHostnameSet = getHostnameSet();
 const lastSelectedHostname = (() => {
@@ -66,13 +63,6 @@ const initwordWrapChecked: boolean =
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
   const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
-  const [removeHostnameButtonDone, setRemoveHostnameButtonDone] = useState(
-    false
-  );
-  const [
-    removeHostnameButtonTimer,
-    setRemoveHostnameButtonTimer,
-  ] = useState<number>();
   const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(
     initwordWrapChecked
   );
@@ -82,13 +72,9 @@ const App: React.FC = () => {
   ] = useState<monaco.editor.IStandaloneCodeEditor | null>(null);
   const editorDivRef = useRef<HTMLDivElement>(null);
   const [hostnameInputValue, setHostnameInputValue] = useState('');
-  const [saveButtonDone, setSaveButtonDone] = useState(false);
-  const [saveButtonTimer, setSaveButtonTimer] = useState<number>();
   const importInputRef = useRef<HTMLInputElement>(null);
   const [importButtonDisabled, setImportButtonDisabled] = useState(true);
   const [importButtonDone, setImportButtonDone] = useState(false);
-  const [exportButtonDone, setExportButtonDone] = useState(false);
-  const [exportButtonTimer, setExportButtonTimer] = useState<number>();
 
   // エディタの初期化
   useEffect(() => {
@@ -179,16 +165,6 @@ const App: React.FC = () => {
     setHostnameSet(newHostnameSet);
     // デフォルトの選択肢に戻す
     setHostname('');
-
-    // ボタンをしました状態にする
-    setRemoveHostnameButtonDone(true);
-    // ちょっとしたらしました状態戻す
-    clearTimeout(removeHostnameButtonTimer);
-    setRemoveHostnameButtonTimer(
-      window.setTimeout(() => {
-        setRemoveHostnameButtonDone(false);
-      }, 1000)
-    );
   }, [hostnameSet, hostname]);
 
   // 保存ボタンを押したとき
@@ -211,19 +187,9 @@ const App: React.FC = () => {
     const newValue = editor.getValue();
     localStorage.setItem(newHostname, newValue);
 
-    // 保存しました状態にする
-    setSaveButtonDone(true);
-    // ちょっとしたら保存しました状態戻す
-    clearTimeout(saveButtonTimer);
-    setSaveButtonTimer(
-      window.setTimeout(() => {
-        setSaveButtonDone(false);
-      }, 1000)
-    );
-
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
-  }, [editor, hostnameSet, hostnameInputValue, saveButtonTimer]);
+  }, [editor, hostnameSet, hostnameInputValue]);
 
   const onImportInputChange = useCallback(() => {
     setImportButtonDisabled(!importInputRef.current?.files?.item(0));
@@ -245,16 +211,6 @@ const App: React.FC = () => {
 
   const onExportButtonClick = useCallback(() => {
     downloadDataAsJson();
-
-    // しました状態にする
-    setExportButtonDone(true);
-    // ちょっとしたらしました状態戻す
-    clearTimeout(exportButtonTimer);
-    setExportButtonTimer(
-      window.setTimeout(() => {
-        setExportButtonDone(false);
-      }, 1000)
-    );
   }, []);
 
   // hostnameのoptionタグをつくる
@@ -295,14 +251,10 @@ const App: React.FC = () => {
           </div>
           <div id='remove-hostname'>
             ドメインを
-            <button
-              className={removeHostnameButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
+            <Button
+              initValue={REMOVE_HOSTNAME_BUTTON_INIT_VALUE}
               onClick={onRemoveHostnameButtonClick}
-            >
-              {removeHostnameButtonDone
-                ? REMOVE_HOSTNAME_BUTTON_DONE_VALUE
-                : REMOVE_HOSTNAME_BUTTON_INIT_VALUE}
-            </button>
+            />
           </div>
         </div>
         <hr className='root-hr' />
@@ -332,14 +284,12 @@ const App: React.FC = () => {
               onChange={onHostnameInputChange}
             />
           </label>
-          <button
+          <Button
             id='save-button'
-            className={saveButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
-            disabled={hostnameInputValue.length === 0 || importButtonDone}
+            disabledWhen={hostnameInputValue.length === 0}
+            initValue={SAVE_BUTTON_INIT_VALUE}
             onClick={onSaveButtonClick}
-          >
-            {saveButtonDone ? SAVE_BUTTON_DONE_VALUE : SAVE_BUTTON_INIT_VALUE}
-          </button>
+          />
         </div>
       </div>
       <hr className='root-hr' />
@@ -365,14 +315,10 @@ const App: React.FC = () => {
         </div>
         <hr />
         <div>
-          <button
-            className={exportButtonDone ? BUTTON_DONE_CLASS_NAME : ''}
+          <Button
+            initValue={EXPORT_BUTTON_INIT_VALUE}
             onClick={onExportButtonClick}
-          >
-            {exportButtonDone
-              ? EXPORT_BUTTON_DONE_VALUE
-              : EXPORT_BUTTON_INIT_VALUE}
-          </button>
+          />
         </div>
       </details>
     </>
