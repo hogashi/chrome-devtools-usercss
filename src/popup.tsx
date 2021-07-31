@@ -103,7 +103,9 @@ const App: React.FC = () => {
   // hostnameのUserCSSをエディタにセットする
   useEffect(() => {
     // hostnameを「前に最後に見てたhostname」として登録する
-    setLastSelectedHostname(hostname);
+    if (hostname !== '') {
+      setLastSelectedHostname(hostname);
+    }
 
     // hostnameをhostnameのinputにセットする
     setHostnameInputValue(hostname);
