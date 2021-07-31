@@ -39,12 +39,12 @@ export const getLocalStorageItem = (
     );
   });
 };
-export const getHostnameSet = (): HostnameSet => {
-  try {
-    return JSON.parse(getLocalStorageItem(HOSTNAME_SET, '{}'));
-  } catch {
-    return {};
-  }
+export const getHostnameSet = (): Promise<HostnameSet> => {
+  return getLocalStorageItem(HOSTNAME_SET, '{}')
+    .then(str => JSON.parse(str))
+    .catch(() => {
+      return {};
+    });
 };
 
 export const downloadDataAsJson = (): void => {
