@@ -76,7 +76,16 @@ var datetimeStr = function datetimeStr() {
   }).join('');
 };
 
-exports.setLocalStorageItem = chrome.storage.local.set;
+var setLocalStorageItem = function setLocalStorageItem(item, callback) {
+  if (callback) {
+    chrome.storage.local.set(item, callback);
+    return;
+  }
+
+  chrome.storage.local.set(item);
+};
+
+exports.setLocalStorageItem = setLocalStorageItem;
 
 var getLocalStorageItem = function getLocalStorageItem(key, defaultValue) {
   if (defaultValue === void 0) {
