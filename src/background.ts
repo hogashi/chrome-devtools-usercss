@@ -33,7 +33,7 @@ const getStyle = (
   return true;
 };
 
-window.chrome.runtime.onMessage.addListener(getStyle);
+chrome.runtime.onMessage.addListener(getStyle);
 
 // TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
 window.chrome.runtime.onInstalled.addListener(migrateToStorage_FORMIGRATE);

@@ -177,7 +177,7 @@ export const downloadDataAsJson = (): void => {
           type: 'application/json',
         });
         const aTag = document.createElement('a');
-        aTag.href = window.URL.createObjectURL(blob);
+        aTag.href = URL.createObjectURL(blob);
         aTag.download = `chrome-usercss-hogashi-${datetimeStr()}.json`;
         aTag.click();
       });
