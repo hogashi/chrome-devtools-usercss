@@ -19,13 +19,12 @@ const getStyle = (
 
   // ドメインを消しても(hostnameSetから消すだけで)localStorageからは消さないので
   // hostnameSetにあるときだけ返す
-  const hostnameSet = getHostnameSet();
-  if (!hostnameSet[hostname]) {
-    return;
-  }
-
-  const style = getLocalStorageItem(hostname);
-  sendResponse({ style });
+  getHostnameSet().then(hostnameSet => {
+    if (!hostnameSet[hostname]) {
+      return;
+    }
+    getLocalStorageItem(hostname).then(style => sendResponse({ style }));
+  });
 };
 
 window.chrome.runtime.onMessage.addListener(getStyle);
