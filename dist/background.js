@@ -19,22 +19,23 @@ var getStyle = function getStyle(message, _, sendResponse) {
 
   if (hostname.length === 0) {
     sendResponse({
-      style: null
+      style: ''
     });
     return;
   } // ドメインを消しても(hostnameSetから消すだけで)localStorageからは消さないので
   // hostnameSetにあるときだけ返す
 
 
-  var hostnameSet = utils_1.getHostnameSet();
+  utils_1.getHostnameSet().then(function (hostnameSet) {
+    if (!hostnameSet[hostname]) {
+      return;
+    }
 
-  if (!hostnameSet[hostname]) {
-    return;
-  }
-
-  var style = localStorage.getItem(hostname);
-  sendResponse({
-    style: style
+    utils_1.getLocalStorageItem(hostname).then(function (style) {
+      return sendResponse({
+        style: style
+      });
+    });
   });
 };
 
@@ -64,7 +65,7 @@ exports.LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
-exports.importDataToLocalStorage = exports.downloadDataAsJson = exports.getHostnameSet = exports.getLocalStorageItem = void 0;
+exports.importDataToLocalStorage = exports.downloadDataAsJson = exports.getHostnameSet = exports.getLocalStorageItem = exports.setLocalStorageItem = void 0;
 
 var constants_1 = __webpack_require__(4799);
 
@@ -75,67 +76,90 @@ var datetimeStr = function datetimeStr() {
   }).join('');
 };
 
+exports.setLocalStorageItem = chrome.storage.local.set;
+
 var getLocalStorageItem = function getLocalStorageItem(key, defaultValue) {
   if (defaultValue === void 0) {
     defaultValue = '';
   }
 
-  return localStorage.getItem(key) || defaultValue;
+  return new Promise(function (resolve) {
+    chrome.storage.local.get([key], function (result) {
+      resolve(result[key] || defaultValue);
+    });
+  });
 };
 
 exports.getLocalStorageItem = getLocalStorageItem;
 
 var getHostnameSet = function getHostnameSet() {
-  try {
-    return JSON.parse(exports.getLocalStorageItem(constants_1.HOSTNAME_SET, '{}'));
-  } catch (_a) {
+  return exports.getLocalStorageItem(constants_1.HOSTNAME_SET, '{}').then(function (str) {
+    return JSON.parse(str);
+  })["catch"](function () {
     return {};
-  }
+  });
 };
 
 exports.getHostnameSet = getHostnameSet;
 
 var downloadDataAsJson = function downloadDataAsJson() {
-  var hostnameSet = exports.getHostnameSet();
-  var lastSelectedHostname = exports.getLocalStorageItem(constants_1.LAST_SELECTED_HOST_NAME);
-  var styleSet = {};
-  Object.keys(hostnameSet).forEach(function (hostname) {
-    styleSet[hostname] = exports.getLocalStorageItem(hostname);
+  exports.getHostnameSet().then(function (hostnameSet) {
+    var styleSet = {};
+    Promise.all(Object.keys(hostnameSet).map(function (hostname) {
+      return exports.getLocalStorageItem(hostname).then(function (css) {
+        styleSet[hostname] = css;
+      });
+    })).then(function () {
+      return exports.getLocalStorageItem(constants_1.LAST_SELECTED_HOST_NAME).then(function (lastSelectedHostname) {
+        return {
+          hostnameSet: hostnameSet,
+          lastSelectedHostname: lastSelectedHostname
+        };
+      });
+    }).then(function (_a) {
+      var hostnameSet = _a.hostnameSet,
+          lastSelectedHostname = _a.lastSelectedHostname;
+      var data = {
+        hostnameSet: hostnameSet,
+        lastSelectedHostname: lastSelectedHostname,
+        styleSet: styleSet
+      };
+      var blob = new Blob([JSON.stringify(data)], {
+        type: 'application/json'
+      });
+      var aTag = document.createElement('a');
+      aTag.href = window.URL.createObjectURL(blob);
+      aTag.download = "chrome-usercss-hogashi-" + datetimeStr() + ".json";
+      aTag.click();
+    });
   });
-  var data = {
-    hostnameSet: hostnameSet,
-    lastSelectedHostname: lastSelectedHostname,
-    styleSet: styleSet
-  };
-  var blob = new Blob([JSON.stringify(data)], {
-    type: 'application/json'
-  });
-  var aTag = document.createElement('a');
-  aTag.href = window.URL.createObjectURL(blob);
-  aTag.download = "chrome-usercss-hogashi-" + datetimeStr() + ".json";
-  aTag.click();
 };
 
 exports.downloadDataAsJson = downloadDataAsJson;
 
 var importDataToLocalStorage = function importDataToLocalStorage(str) {
+  var _a;
+
   var data;
 
   try {
     data = JSON.parse(str);
-  } catch (_a) {
-    return false;
+  } catch (_b) {
+    return Promise.resolve(false);
   }
 
   var hostnameSet = data.hostnameSet,
       lastSelectedHostname = data.lastSelectedHostname,
       styleSet = data.styleSet;
-  localStorage.setItem(constants_1.HOSTNAME_SET, JSON.stringify(hostnameSet));
-  localStorage.setItem(constants_1.LAST_SELECTED_HOST_NAME, lastSelectedHostname);
+  var dataToSet = (_a = {}, _a[constants_1.HOSTNAME_SET] = JSON.stringify(hostnameSet), _a[constants_1.LAST_SELECTED_HOST_NAME] = lastSelectedHostname, _a);
   Object.keys(hostnameSet).map(function (hostname) {
-    localStorage.setItem(hostname, styleSet[hostname]);
+    dataToSet[hostname] = styleSet[hostname];
   });
-  return true;
+  return new Promise(function (resolve) {
+    return chrome.storage.local.set(dataToSet, function () {
+      return resolve(true);
+    });
+  });
 };
 
 exports.importDataToLocalStorage = importDataToLocalStorage;

@@ -20,7 +20,7 @@ var responseCallback = function responseCallback(response) {
 
   var style = response.style;
 
-  if (style === null) {
+  if (style === '') {
     return;
   }
 
