@@ -83,6 +83,33 @@ export const setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = (): Promise<true> 
     [IS_ALREADY_MIGRATED_TO_STORAGE]: JSON.stringify(true),
   });
 
+// 何らかがおかしくて自動でmigrateToStorage_FORMIGRATEできなかった場合に,
+// 人間の手で"localStorageからエクスポート→chrome.storageにインポート"をしたいことがある
+// その"localStorageからのエクスポート"をするメソッド
+export const downloadDataAsJsonFromLocalStorage_FORMIGRATE = (): void => {
+  const hostnameSet = getHostnameSetFromLocalStorage_FORMIGRATE();
+  const lastSelectedHostname = getLocalStorageItem_FORMIGRATE(
+    LAST_SELECTED_HOST_NAME
+  );
+
+  const styleSet: { [hostname: string]: string } = {};
+  Object.keys(hostnameSet).forEach(hostname => {
+    styleSet[hostname] = getLocalStorageItem_FORMIGRATE(hostname);
+  });
+
+  const data: Data = {
+    hostnameSet,
+    lastSelectedHostname,
+    styleSet,
+  };
+
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const aTag = document.createElement('a');
+  aTag.href = window.URL.createObjectURL(blob);
+  aTag.download = `chrome-usercss-hogashi-v020-${datetimeStr()}.json`;
+  aTag.click();
+};
+
 // chrome.storage
 
 export const setStorageItem = (

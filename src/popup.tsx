@@ -16,6 +16,7 @@ import {
   getHostnameSet,
   importDataToStorage,
   downloadDataAsJson,
+  downloadDataAsJsonFromLocalStorage_FORMIGRATE,
 } from './lib/utils';
 
 // @ts-expect-error: MonacoEnvironment is undefined in window
@@ -46,6 +47,8 @@ const SAVE_BUTTON_INIT_VALUE = '保存';
 const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
 const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
+const EXPORT_FROM_LOCAL_STORAGE_BUTTON_INIT_VALUE =
+  'v0.2.0時点のデータからエクスポートする';
 
 const setLastSelectedHostname = (hostname: string): Promise<true> =>
   setStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
@@ -204,6 +207,10 @@ const App: React.FC = () => {
     downloadDataAsJson();
   }, []);
 
+  const onExportFromLocalStorageButtonClick = useCallback(() => {
+    downloadDataAsJsonFromLocalStorage_FORMIGRATE();
+  }, []);
+
   // hostnameのoptionタグをつくる
   const hostnames = Object.keys(hostnameSet);
   const hostNamesOptions = hostnames.map(hn => {
@@ -298,6 +305,13 @@ const App: React.FC = () => {
           <Button
             initValue={EXPORT_BUTTON_INIT_VALUE}
             onClick={onExportButtonClick}
+          />
+        </div>
+        <div>
+          <Button
+            className={'export-from-local-storage'}
+            initValue={EXPORT_FROM_LOCAL_STORAGE_BUTTON_INIT_VALUE}
+            onClick={onExportFromLocalStorageButtonClick}
           />
         </div>
       </details>
