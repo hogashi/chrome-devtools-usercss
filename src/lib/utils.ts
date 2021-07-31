@@ -70,8 +70,7 @@ export const migrateToStorage_FORMIGRATE = (): void => {
       ),
     };
     Object.keys(hostnameSet).forEach(hostname => {
-      const css = getLocalStorageItem_FORMIGRATE(hostname);
-      dataToMigrate[hostname] = css;
+      dataToMigrate[hostname] = getLocalStorageItem_FORMIGRATE(hostname);
     });
     setStorageItem(dataToMigrate).then(() => {
       setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE();
@@ -174,6 +173,11 @@ export const importDataToStorage = (str: string): Promise<boolean> => {
     dataToSet[hostname] = styleSet[hostname];
   });
   return new Promise(resolve =>
-    chrome.storage.local.set(dataToSet, () => resolve(true))
+    setStorageItem(dataToSet, () => {
+      // 手でインポートしたときは移行済みの扱いとする
+      setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE().then(() =>
+        resolve(true)
+      );
+    })
   );
 };
