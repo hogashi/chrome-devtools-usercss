@@ -47,7 +47,7 @@ const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
 const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
 
-const setLastSelectedHostname = (hostname: string): void =>
+const setLastSelectedHostname = (hostname: string): Promise<true> =>
   setStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
 
 const App: React.FC = () => {

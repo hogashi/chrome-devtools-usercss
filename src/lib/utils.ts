@@ -69,7 +69,7 @@ export const migrateToStorage_FORMIGRATE = (): void => {
   setStorageItem(dataToMigrate);
 };
 
-export const setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = (): void =>
+export const setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = (): Promise<true> =>
   setStorageItem({
     [IS_ALREADY_MIGRATED_TO_STORAGE]: JSON.stringify(true),
   });
@@ -77,12 +77,17 @@ export const setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = (): void =>
 export const setStorageItem = (
   item: { [key: string]: string },
   callback?: () => void
-): void => {
-  if (callback) {
-    chrome.storage.local.set(item, callback);
-    return;
-  }
-  chrome.storage.local.set(item);
+): Promise<true> => {
+  return new Promise(resolve => {
+    if (callback) {
+      chrome.storage.local.set(item, (...args) => {
+        callback(...args);
+        resolve(true);
+      });
+      return;
+    }
+    chrome.storage.local.set(item, () => resolve(true));
+  });
 };
 
 export const getStorageItem = (
