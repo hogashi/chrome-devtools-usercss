@@ -1,4 +1,8 @@
-import { getHostnameSet, getStorageItem } from './lib/utils';
+import {
+  getHostnameSet,
+  getStorageItem,
+  migrateToStorage_FORMIGRATE,
+} from './lib/utils';
 
 export interface GetStyleMessage {
   hostname: string;
@@ -30,3 +34,6 @@ const getStyle = (
 };
 
 window.chrome.runtime.onMessage.addListener(getStyle);
+
+// TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
+window.chrome.runtime.onInstalled.addListener(migrateToStorage_FORMIGRATE);
