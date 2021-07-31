@@ -11,6 +11,7 @@ import {
 } from './lib/constants';
 import { useSaveOnCtrlS, useWordWrapChecked } from './lib/hooks';
 import {
+  setLocalStorageItem,
   getLocalStorageItem,
   getHostnameSet,
   importDataToLocalStorage,
@@ -52,7 +53,7 @@ const lastSelectedHostname = (() => {
   return initHostnameSet[lastSelected] ? lastSelected : '';
 })();
 const setLastSelectedHostname = (hostname: string): void =>
-  localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+  setLocalStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState(lastSelectedHostname);
@@ -91,7 +92,7 @@ const App: React.FC = () => {
 
   // hostnameたちの更新
   useEffect(() => {
-    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
+    setLocalStorageItem({ [HOSTNAME_SET]: JSON.stringify(hostnameSet) });
   }, [hostnameSet]);
 
   // hostnameのUserCSSをエディタにセットする
@@ -165,7 +166,7 @@ const App: React.FC = () => {
 
     // エディタに書かれてる文字列を取ってきてhostnameのUserCSSとして登録する
     const newValue = editor.getValue();
-    localStorage.setItem(newHostname, newValue);
+    setLocalStorageItem({ [newHostname]: newValue });
 
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
