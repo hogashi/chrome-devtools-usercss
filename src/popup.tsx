@@ -47,17 +47,12 @@ const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
 const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
 
-const initHostnameSet = getHostnameSet();
-const lastSelectedHostname = (() => {
-  const lastSelected = getLocalStorageItem(LAST_SELECTED_HOST_NAME);
-  return initHostnameSet[lastSelected] ? lastSelected : '';
-})();
 const setLastSelectedHostname = (hostname: string): void =>
   setLocalStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
 
 const App: React.FC = () => {
-  const [hostname, setHostname] = useState(lastSelectedHostname);
-  const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
+  const [hostname, setHostname] = useState('');
+  const [hostnameSet, setHostnameSet] = useState<HostnameSet>({});
   const [
     editor,
     setEditor,
@@ -71,6 +66,16 @@ const App: React.FC = () => {
   const [importButtonDone, setImportButtonDone] = useState(false);
 
   useSaveOnCtrlS(saveButtonRef);
+
+  // 最初に出すhostnameとか
+  useEffect(() => {
+    getHostnameSet().then(initHostnameSet => {
+      setHostnameSet(initHostnameSet);
+      getLocalStorageItem(LAST_SELECTED_HOST_NAME).then(lastSelected => {
+        setHostname(initHostnameSet[lastSelected] ? lastSelected : '');
+      });
+    });
+  }, []);
 
   // エディタの初期化
   useEffect(() => {
@@ -109,8 +114,9 @@ const App: React.FC = () => {
       return;
     }
 
-    const style = getLocalStorageItem(hostname);
-    editor?.setValue(style);
+    getLocalStorageItem(hostname).then(style => {
+      editor?.setValue(style);
+    });
   }, [editor, hostname]);
 
   // EventListenerたち
@@ -182,12 +188,13 @@ const App: React.FC = () => {
       ?.item(0)
       ?.text()
       .then(str => {
-        const isSuccess = importDataToLocalStorage(str);
-        if (isSuccess) {
-          // しました状態にする
-          setImportButtonDone(true);
-          setImportButtonDisabled(true);
-        }
+        importDataToLocalStorage(str).then(isSuccess => {
+          if (isSuccess) {
+            // しました状態にする
+            setImportButtonDone(true);
+            setImportButtonDisabled(true);
+          }
+        });
       });
   }, [importInputRef]);
 
