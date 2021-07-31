@@ -15,16 +15,16 @@ var message = {
   hostname: location.hostname
 };
 
-var responseCallback = function responseCallback(response) {
-  var _a;
+var responseCallback = function responseCallback(_a) {
+  var _b;
 
-  var style = response.style;
+  var style = _a.style;
 
   if (style === '') {
     return;
   }
 
-  (_a = document.querySelector('body')) === null || _a === void 0 ? void 0 : _a.insertAdjacentHTML('beforeend', "<style data-usercss>" + style + "</style>");
+  (_b = document.querySelector('body')) === null || _b === void 0 ? void 0 : _b.insertAdjacentHTML('beforeend', "<style data-usercss>" + style + "</style>");
 };
 
 window.chrome.runtime.sendMessage(message, responseCallback);

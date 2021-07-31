@@ -21,14 +21,16 @@ var getStyle = function getStyle(message, _, sendResponse) {
     sendResponse({
       style: ''
     });
-    return;
+    return true;
   } // ドメインを消しても(hostnameSetから消すだけで)localStorageからは消さないので
   // hostnameSetにあるときだけ返す
 
 
   utils_1.getHostnameSet().then(function (hostnameSet) {
     if (!hostnameSet[hostname]) {
-      return;
+      sendResponse({
+        style: ''
+      });
     }
 
     utils_1.getLocalStorageItem(hostname).then(function (style) {
@@ -37,6 +39,7 @@ var getStyle = function getStyle(message, _, sendResponse) {
       });
     });
   });
+  return true;
 };
 
 window.chrome.runtime.onMessage.addListener(getStyle);
