@@ -2,6 +2,7 @@ import {
   HostnameSet,
   HOSTNAME_SET,
   LAST_SELECTED_HOST_NAME,
+  IS_ALREADY_MIGRATED_TO_STORAGE,
 } from './constants';
 
 type Data = {
@@ -25,6 +26,53 @@ const datetimeStr = (): string => {
       .join('')
   );
 };
+
+// TODO: _FORMIGRATEシリーズはみなさまがlocalStorageから脱出できてそうなくらい経ったら消す
+
+export const getLocalStorageItem_FORMIGRATE = (
+  key: string,
+  defaultValue = ''
+): string => {
+  return localStorage.getItem(key) || defaultValue;
+};
+
+export const getHostnameSetFromLocalStorage_FORMIGRATE = (): HostnameSet => {
+  try {
+    return JSON.parse(getLocalStorageItem_FORMIGRATE(HOSTNAME_SET, '{}'));
+  } catch {
+    return {};
+  }
+};
+
+export const getIsAlreadyMigratedToStorage_FORMIGRATE = (): Promise<boolean> =>
+  getStorageItem(IS_ALREADY_MIGRATED_TO_STORAGE).then(value => {
+    if (value === '') {
+      return false;
+    }
+    return JSON.parse(value);
+  });
+
+export const migrateToStorage_FORMIGRATE = (): void => {
+  const hostnameSet = getHostnameSetFromLocalStorage_FORMIGRATE();
+  const dataToMigrate: {
+    [key: string]: string;
+  } = {
+    hostnameSet: JSON.stringify(hostnameSet),
+    lastSelectedHostname: getLocalStorageItem_FORMIGRATE(
+      LAST_SELECTED_HOST_NAME
+    ),
+  };
+  Object.keys(hostnameSet).map(hostname => {
+    const css = getLocalStorageItem_FORMIGRATE(hostname);
+    dataToMigrate[hostname] = css;
+  });
+  setStorageItem(dataToMigrate);
+};
+
+export const setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = (): void =>
+  setStorageItem({
+    [IS_ALREADY_MIGRATED_TO_STORAGE]: JSON.stringify(true),
+  });
 
 export const setStorageItem = (
   item: { [key: string]: string },
@@ -50,6 +98,7 @@ export const getStorageItem = (
     );
   });
 };
+
 export const getHostnameSet = (): Promise<HostnameSet> => {
   return getStorageItem(HOSTNAME_SET, '{}')
     .then(str => JSON.parse(str))
