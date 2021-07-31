@@ -26,7 +26,16 @@ const datetimeStr = (): string => {
   );
 };
 
-export const setLocalStorageItem = chrome.storage.local.set;
+export const setLocalStorageItem = (
+  item: { [key: string]: string },
+  callback?: () => void
+): void => {
+  if (callback) {
+    chrome.storage.local.set(item, callback);
+    return;
+  }
+  chrome.storage.local.set(item);
+};
 
 export const getLocalStorageItem = (
   key: string,
