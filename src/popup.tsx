@@ -308,6 +308,9 @@ const App: React.FC = () => {
           />
         </div>
         <div>
+          <span className={'export-from-local-storage-label'}>
+            何かおかしかったらここからエクスポート→インポートし直してください:
+          </span>
           <Button
             className={'export-from-local-storage'}
             initValue={EXPORT_FROM_LOCAL_STORAGE_BUTTON_INIT_VALUE}
