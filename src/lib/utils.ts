@@ -26,8 +26,18 @@ const datetimeStr = (): string => {
   );
 };
 
-export const getLocalStorageItem = (key: string, defaultValue = ''): string => {
-  return localStorage.getItem(key) || defaultValue;
+export const getLocalStorageItem = (
+  key: string,
+  defaultValue = ''
+): Promise<string> => {
+  return new Promise(resolve => {
+    chrome.storage.local.get(
+      [key],
+      (result: { [key: string]: string | undefined }) => {
+        resolve(result[key] || defaultValue);
+      }
+    );
+  });
 };
 export const getHostnameSet = (): HostnameSet => {
   try {
@@ -59,18 +69,22 @@ export const downloadDataAsJson = (): void => {
   aTag.click();
 };
 
-export const importDataToLocalStorage = (str: string): boolean => {
+export const importDataToLocalStorage = (str: string): Promise<boolean> => {
   let data: Data;
   try {
     data = JSON.parse(str);
   } catch {
-    return false;
+    return Promise.resolve(false);
   }
   const { hostnameSet, lastSelectedHostname, styleSet } = data;
-  localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
-  localStorage.setItem(LAST_SELECTED_HOST_NAME, lastSelectedHostname);
+  const dataToSet: { [hostname: string]: string } = {
+    [HOSTNAME_SET]: JSON.stringify(hostnameSet),
+    [LAST_SELECTED_HOST_NAME]: lastSelectedHostname,
+  };
   Object.keys(hostnameSet).map(hostname => {
-    localStorage.setItem(hostname, styleSet[hostname]);
+    dataToSet[hostname] = styleSet[hostname];
   });
-  return true;
+  return new Promise(resolve =>
+    chrome.storage.local.set(dataToSet, () => resolve(true))
+  );
 };
