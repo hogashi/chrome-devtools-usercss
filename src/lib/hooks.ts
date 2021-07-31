@@ -7,10 +7,6 @@ const WORD_WRAP = 'wordWrap';
 const WORD_WRAP_ON = 'on';
 const WORD_WRAP_OFF = 'off';
 
-// 行の折返し(デフォルトでON)
-const initwordWrapChecked: boolean =
-  getLocalStorageItem(WORD_WRAP) !== WORD_WRAP_OFF;
-
 // 行の折返しのcheckboxの扱い
 export const useWordWrapChecked = (
   editor: monaco.editor.IStandaloneCodeEditor | null
@@ -18,9 +14,17 @@ export const useWordWrapChecked = (
   wordWrapChecked: boolean;
   onWordWrapChanged: (event: React.ChangeEvent<HTMLInputElement>) => void;
 } => {
-  const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(
-    initwordWrapChecked
-  );
+  // 行の折返し(デフォルトでON)
+  const [wordWrapChecked, setWordWrapChecked] = useState<boolean>(true);
+
+  // 最初に行の折り返しの設定を思い出す
+  useEffect(() => {
+    getLocalStorageItem(WORD_WRAP).then(wordWrap => {
+      // デフォルトでONにするためにisnotで比較する
+      setWordWrapChecked(wordWrap !== WORD_WRAP_OFF);
+    });
+  }, []);
+
   // 行の折返しのcheckboxを変えたとき
   const onWordWrapChanged = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>): void => {
