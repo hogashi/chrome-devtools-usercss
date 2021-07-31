@@ -1,7 +1,7 @@
 import { RefObject, useCallback, useEffect, useState } from 'react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-import { getLocalStorageItem, setLocalStorageItem } from './utils';
+import { getStorageItem, setStorageItem } from './utils';
 
 const WORD_WRAP = 'wordWrap';
 const WORD_WRAP_ON = 'on';
@@ -19,7 +19,7 @@ export const useWordWrapChecked = (
 
   // 最初に行の折り返しの設定を思い出す
   useEffect(() => {
-    getLocalStorageItem(WORD_WRAP).then(wordWrap => {
+    getStorageItem(WORD_WRAP).then(wordWrap => {
       // デフォルトでONにするためにisnotで比較する
       setWordWrapChecked(wordWrap !== WORD_WRAP_OFF);
     });
@@ -37,7 +37,7 @@ export const useWordWrapChecked = (
   useEffect(() => {
     const wordWrap = wordWrapChecked ? WORD_WRAP_ON : WORD_WRAP_OFF;
     editor?.updateOptions({ wordWrap });
-    setLocalStorageItem({ [WORD_WRAP]: wordWrap });
+    setStorageItem({ [WORD_WRAP]: wordWrap });
   }, [editor, wordWrapChecked]);
 
   return {

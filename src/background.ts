@@ -1,4 +1,4 @@
-import { getHostnameSet, getLocalStorageItem } from './lib/utils';
+import { getHostnameSet, getStorageItem } from './lib/utils';
 
 export interface GetStyleMessage {
   hostname: string;
@@ -17,13 +17,13 @@ const getStyle = (
     return true;
   }
 
-  // ドメインを消しても(hostnameSetから消すだけで)localStorageからは消さないので
+  // ドメインを消しても(hostnameSetから消すだけで)storageからは消さないので
   // hostnameSetにあるときだけ返す
   getHostnameSet().then(hostnameSet => {
     if (!hostnameSet[hostname]) {
       sendResponse({ style: '' });
     }
-    getLocalStorageItem(hostname).then(style => sendResponse({ style }));
+    getStorageItem(hostname).then(style => sendResponse({ style }));
   });
 
   return true;

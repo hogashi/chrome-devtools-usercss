@@ -11,10 +11,10 @@ import {
 } from './lib/constants';
 import { useSaveOnCtrlS, useWordWrapChecked } from './lib/hooks';
 import {
-  setLocalStorageItem,
-  getLocalStorageItem,
+  setStorageItem,
+  getStorageItem,
   getHostnameSet,
-  importDataToLocalStorage,
+  importDataToStorage,
   downloadDataAsJson,
 } from './lib/utils';
 
@@ -48,7 +48,7 @@ const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
 
 const setLastSelectedHostname = (hostname: string): void =>
-  setLocalStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
+  setStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
 
 const App: React.FC = () => {
   const [hostname, setHostname] = useState('');
@@ -71,7 +71,7 @@ const App: React.FC = () => {
   useEffect(() => {
     getHostnameSet().then(initHostnameSet => {
       setHostnameSet(initHostnameSet);
-      getLocalStorageItem(LAST_SELECTED_HOST_NAME).then(lastSelected => {
+      getStorageItem(LAST_SELECTED_HOST_NAME).then(lastSelected => {
         setHostname(initHostnameSet[lastSelected] ? lastSelected : '');
       });
     });
@@ -97,7 +97,7 @@ const App: React.FC = () => {
 
   // hostnameたちの更新
   useEffect(() => {
-    setLocalStorageItem({ [HOSTNAME_SET]: JSON.stringify(hostnameSet) });
+    setStorageItem({ [HOSTNAME_SET]: JSON.stringify(hostnameSet) });
   }, [hostnameSet]);
 
   // hostnameのUserCSSをエディタにセットする
@@ -116,7 +116,7 @@ const App: React.FC = () => {
       return;
     }
 
-    getLocalStorageItem(hostname).then(style => {
+    getStorageItem(hostname).then(style => {
       editor?.setValue(style);
     });
   }, [editor, hostname]);
@@ -174,7 +174,7 @@ const App: React.FC = () => {
 
     // エディタに書かれてる文字列を取ってきてhostnameのUserCSSとして登録する
     const newValue = editor.getValue();
-    setLocalStorageItem({ [newHostname]: newValue });
+    setStorageItem({ [newHostname]: newValue });
 
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
@@ -190,7 +190,7 @@ const App: React.FC = () => {
       ?.item(0)
       ?.text()
       .then(str => {
-        importDataToLocalStorage(str).then(isSuccess => {
+        importDataToStorage(str).then(isSuccess => {
           if (isSuccess) {
             // しました状態にする
             setImportButtonDone(true);
