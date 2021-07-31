@@ -48,25 +48,36 @@ export const getHostnameSet = (): Promise<HostnameSet> => {
 };
 
 export const downloadDataAsJson = (): void => {
-  const hostnameSet = getHostnameSet();
-  const lastSelectedHostname = getLocalStorageItem(LAST_SELECTED_HOST_NAME);
+  getHostnameSet().then(hostnameSet => {
+    const styleSet: { [hostname: string]: string } = {};
+    Promise.all(
+      Object.keys(hostnameSet).map(hostname =>
+        getLocalStorageItem(hostname).then(css => {
+          styleSet[hostname] = css;
+        })
+      )
+    )
+      .then(() =>
+        getLocalStorageItem(
+          LAST_SELECTED_HOST_NAME
+        ).then(lastSelectedHostname => ({ hostnameSet, lastSelectedHostname }))
+      )
+      .then(({ hostnameSet, lastSelectedHostname }) => {
+        const data: Data = {
+          hostnameSet,
+          lastSelectedHostname,
+          styleSet,
+        };
 
-  const styleSet: { [hostname: string]: string } = {};
-  Object.keys(hostnameSet).forEach(hostname => {
-    styleSet[hostname] = getLocalStorageItem(hostname);
+        const blob = new Blob([JSON.stringify(data)], {
+          type: 'application/json',
+        });
+        const aTag = document.createElement('a');
+        aTag.href = window.URL.createObjectURL(blob);
+        aTag.download = `chrome-usercss-hogashi-${datetimeStr()}.json`;
+        aTag.click();
+      });
   });
-
-  const data: Data = {
-    hostnameSet,
-    lastSelectedHostname,
-    styleSet,
-  };
-
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const aTag = document.createElement('a');
-  aTag.href = window.URL.createObjectURL(blob);
-  aTag.download = `chrome-usercss-hogashi-${datetimeStr()}.json`;
-  aTag.click();
 };
 
 export const importDataToLocalStorage = (str: string): Promise<boolean> => {
