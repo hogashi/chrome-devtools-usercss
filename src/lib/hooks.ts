@@ -1,7 +1,7 @@
 import { RefObject, useCallback, useEffect, useState } from 'react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
-import { getLocalStorageItem } from './utils';
+import { getLocalStorageItem, setLocalStorageItem } from './utils';
 
 const WORD_WRAP = 'wordWrap';
 const WORD_WRAP_ON = 'on';
@@ -37,7 +37,7 @@ export const useWordWrapChecked = (
   useEffect(() => {
     const wordWrap = wordWrapChecked ? WORD_WRAP_ON : WORD_WRAP_OFF;
     editor?.updateOptions({ wordWrap });
-    localStorage.setItem(WORD_WRAP, wordWrap);
+    setLocalStorageItem({ [WORD_WRAP]: wordWrap });
   }, [editor, wordWrapChecked]);
 
   return {
