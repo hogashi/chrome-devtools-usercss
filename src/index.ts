@@ -6,7 +6,7 @@ const message: GetStyleMessage = {
 
 const responseCallback: SendGetStyleResponse = response => {
   const style = response.style;
-  if (style === null) {
+  if (style === '') {
     return;
   }
 

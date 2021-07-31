@@ -1,10 +1,10 @@
-import { getHostnameSet } from './lib/utils';
+import { getHostnameSet, getLocalStorageItem } from './lib/utils';
 
 export interface GetStyleMessage {
   hostname: string;
 }
 
-export type SendGetStyleResponse = (response: { style: string | null }) => void;
+export type SendGetStyleResponse = (response: { style: string }) => void;
 
 const getStyle = (
   message: GetStyleMessage,
@@ -13,7 +13,7 @@ const getStyle = (
 ): void => {
   const hostname = message.hostname;
   if (hostname.length === 0) {
-    sendResponse({ style: null });
+    sendResponse({ style: '' });
     return;
   }
 
@@ -24,7 +24,7 @@ const getStyle = (
     return;
   }
 
-  const style = localStorage.getItem(hostname);
+  const style = getLocalStorageItem(hostname);
   sendResponse({ style });
 };
 
