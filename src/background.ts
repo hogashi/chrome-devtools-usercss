@@ -1,3 +1,5 @@
+import { getHostnameSet } from './lib/utils';
+
 export interface GetStyleMessage {
   hostname: string;
 }
@@ -12,6 +14,13 @@ const getStyle = (
   const hostname = message.hostname;
   if (hostname.length === 0) {
     sendResponse({ style: null });
+    return;
+  }
+
+  // ドメインを消しても(hostnameSetから消すだけで)localStorageからは消さないので
+  // hostnameSetにあるときだけ返す
+  const hostnameSet = getHostnameSet();
+  if (!hostnameSet[hostname]) {
     return;
   }
 
