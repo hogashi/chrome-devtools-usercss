@@ -19,26 +19,32 @@ var getStyle = function getStyle(message, _, sendResponse) {
 
   if (hostname.length === 0) {
     sendResponse({
-      style: null
+      style: ''
     });
-    return;
-  } // ドメインを消しても(hostnameSetから消すだけで)localStorageからは消さないので
+    return true;
+  } // ドメインを消しても(hostnameSetから消すだけで)storageからは消さないので
   // hostnameSetにあるときだけ返す
 
 
-  var hostnameSet = utils_1.getHostnameSet();
+  utils_1.getHostnameSet().then(function (hostnameSet) {
+    if (!hostnameSet[hostname]) {
+      sendResponse({
+        style: ''
+      });
+    }
 
-  if (!hostnameSet[hostname]) {
-    return;
-  }
-
-  var style = localStorage.getItem(hostname);
-  sendResponse({
-    style: style
+    utils_1.getStorageItem(hostname).then(function (style) {
+      return sendResponse({
+        style: style
+      });
+    });
   });
+  return true;
 };
 
-window.chrome.runtime.onMessage.addListener(getStyle);
+chrome.runtime.onMessage.addListener(getStyle); // TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
+
+window.chrome.runtime.onInstalled.addListener(utils_1.migrateToStorage_FORMIGRATE);
 
 /***/ }),
 
@@ -50,9 +56,10 @@ window.chrome.runtime.onMessage.addListener(getStyle);
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
-exports.LAST_SELECTED_HOST_NAME = exports.HOSTNAME_SET = void 0;
+exports.IS_ALREADY_MIGRATED_TO_STORAGE = exports.LAST_SELECTED_HOST_NAME = exports.HOSTNAME_SET = void 0;
 exports.HOSTNAME_SET = 'hostnameSet';
 exports.LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
+exports.IS_ALREADY_MIGRATED_TO_STORAGE = 'isAlreadyMigratedToStorage';
 
 /***/ }),
 
@@ -64,7 +71,7 @@ exports.LAST_SELECTED_HOST_NAME = 'lastSelectedHostname';
 Object.defineProperty(exports, "__esModule", ({
   value: true
 }));
-exports.importDataToLocalStorage = exports.downloadDataAsJson = exports.getHostnameSet = exports.getLocalStorageItem = void 0;
+exports.importDataToStorage = exports.downloadDataAsJson = exports.getHostnameSet = exports.getStorageItem = exports.setStorageItem = exports.downloadDataAsJsonFromLocalStorage_FORMIGRATE = exports.setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = exports.migrateToStorage_FORMIGRATE = exports.getIsAlreadyMigratedToStorage_FORMIGRATE = exports.getHostnameSetFromLocalStorage_FORMIGRATE = exports.getLocalStorageItem_FORMIGRATE = void 0;
 
 var constants_1 = __webpack_require__(4799);
 
@@ -73,9 +80,11 @@ var datetimeStr = function datetimeStr() {
   return "" + date.getFullYear() + [date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds()].map(function (n) {
     return ("0" + n).slice(-2);
   }).join('');
-};
+}; // _FORMIGRATEシリーズは移行用のメソッド
+// TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
 
-var getLocalStorageItem = function getLocalStorageItem(key, defaultValue) {
+
+var getLocalStorageItem_FORMIGRATE = function getLocalStorageItem_FORMIGRATE(key, defaultValue) {
   if (defaultValue === void 0) {
     defaultValue = '';
   }
@@ -83,24 +92,69 @@ var getLocalStorageItem = function getLocalStorageItem(key, defaultValue) {
   return localStorage.getItem(key) || defaultValue;
 };
 
-exports.getLocalStorageItem = getLocalStorageItem;
+exports.getLocalStorageItem_FORMIGRATE = getLocalStorageItem_FORMIGRATE;
 
-var getHostnameSet = function getHostnameSet() {
+var getHostnameSetFromLocalStorage_FORMIGRATE = function getHostnameSetFromLocalStorage_FORMIGRATE() {
   try {
-    return JSON.parse(exports.getLocalStorageItem(constants_1.HOSTNAME_SET, '{}'));
+    return JSON.parse(exports.getLocalStorageItem_FORMIGRATE(constants_1.HOSTNAME_SET, '{}'));
   } catch (_a) {
     return {};
   }
 };
 
-exports.getHostnameSet = getHostnameSet;
+exports.getHostnameSetFromLocalStorage_FORMIGRATE = getHostnameSetFromLocalStorage_FORMIGRATE;
 
-var downloadDataAsJson = function downloadDataAsJson() {
-  var hostnameSet = exports.getHostnameSet();
-  var lastSelectedHostname = exports.getLocalStorageItem(constants_1.LAST_SELECTED_HOST_NAME);
+var getIsAlreadyMigratedToStorage_FORMIGRATE = function getIsAlreadyMigratedToStorage_FORMIGRATE() {
+  return exports.getStorageItem(constants_1.IS_ALREADY_MIGRATED_TO_STORAGE).then(function (value) {
+    if (value === '') {
+      return false;
+    }
+
+    return JSON.parse(value);
+  });
+};
+
+exports.getIsAlreadyMigratedToStorage_FORMIGRATE = getIsAlreadyMigratedToStorage_FORMIGRATE;
+
+var migrateToStorage_FORMIGRATE = function migrateToStorage_FORMIGRATE() {
+  exports.getIsAlreadyMigratedToStorage_FORMIGRATE().then(function (isAlreadyMigrated) {
+    // 移行済みならなにもしない
+    if (isAlreadyMigrated) {
+      return;
+    }
+
+    var hostnameSet = exports.getHostnameSetFromLocalStorage_FORMIGRATE();
+    var dataToMigrate = {
+      hostnameSet: JSON.stringify(hostnameSet),
+      lastSelectedHostname: exports.getLocalStorageItem_FORMIGRATE(constants_1.LAST_SELECTED_HOST_NAME)
+    };
+    Object.keys(hostnameSet).forEach(function (hostname) {
+      dataToMigrate[hostname] = exports.getLocalStorageItem_FORMIGRATE(hostname);
+    });
+    exports.setStorageItem(dataToMigrate).then(function () {
+      exports.setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE();
+    });
+  });
+};
+
+exports.migrateToStorage_FORMIGRATE = migrateToStorage_FORMIGRATE;
+
+var setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = function setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE() {
+  var _a;
+
+  return exports.setStorageItem((_a = {}, _a[constants_1.IS_ALREADY_MIGRATED_TO_STORAGE] = JSON.stringify(true), _a));
+};
+
+exports.setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE; // 何らかがおかしくて自動でmigrateToStorage_FORMIGRATEできなかった場合に,
+// 人間の手で"localStorageからエクスポート→chrome.storageにインポート"をしたいことがある
+// その"localStorageからのエクスポート"をするメソッド
+
+var downloadDataAsJsonFromLocalStorage_FORMIGRATE = function downloadDataAsJsonFromLocalStorage_FORMIGRATE() {
+  var hostnameSet = exports.getHostnameSetFromLocalStorage_FORMIGRATE();
+  var lastSelectedHostname = exports.getLocalStorageItem_FORMIGRATE(constants_1.LAST_SELECTED_HOST_NAME);
   var styleSet = {};
   Object.keys(hostnameSet).forEach(function (hostname) {
-    styleSet[hostname] = exports.getLocalStorageItem(hostname);
+    styleSet[hostname] = exports.getLocalStorageItem_FORMIGRATE(hostname);
   });
   var data = {
     hostnameSet: hostnameSet,
@@ -112,33 +166,124 @@ var downloadDataAsJson = function downloadDataAsJson() {
   });
   var aTag = document.createElement('a');
   aTag.href = window.URL.createObjectURL(blob);
-  aTag.download = "chrome-usercss-hogashi-" + datetimeStr() + ".json";
+  aTag.download = "chrome-usercss-hogashi-v020-" + datetimeStr() + ".json";
   aTag.click();
+};
+
+exports.downloadDataAsJsonFromLocalStorage_FORMIGRATE = downloadDataAsJsonFromLocalStorage_FORMIGRATE; // chrome.storage
+
+var setStorageItem = function setStorageItem(item, callback) {
+  return new Promise(function (resolve) {
+    if (callback) {
+      chrome.storage.local.set(item, function () {
+        var args = [];
+
+        for (var _i = 0; _i < arguments.length; _i++) {
+          args[_i] = arguments[_i];
+        }
+
+        callback.apply(void 0, args);
+        resolve(true);
+      });
+      return;
+    }
+
+    chrome.storage.local.set(item, function () {
+      return resolve(true);
+    });
+  });
+};
+
+exports.setStorageItem = setStorageItem;
+
+var getStorageItem = function getStorageItem(key, defaultValue) {
+  if (defaultValue === void 0) {
+    defaultValue = '';
+  }
+
+  return new Promise(function (resolve) {
+    chrome.storage.local.get([key], function (result) {
+      resolve(result[key] || defaultValue);
+    });
+  });
+};
+
+exports.getStorageItem = getStorageItem;
+
+var getHostnameSet = function getHostnameSet() {
+  return exports.getStorageItem(constants_1.HOSTNAME_SET, '{}').then(function (str) {
+    return JSON.parse(str);
+  })["catch"](function () {
+    return {};
+  });
+};
+
+exports.getHostnameSet = getHostnameSet;
+
+var downloadDataAsJson = function downloadDataAsJson() {
+  exports.getHostnameSet().then(function (hostnameSet) {
+    var styleSet = {};
+    Promise.all(Object.keys(hostnameSet).map(function (hostname) {
+      return exports.getStorageItem(hostname).then(function (css) {
+        styleSet[hostname] = css;
+      });
+    })).then(function () {
+      return exports.getStorageItem(constants_1.LAST_SELECTED_HOST_NAME).then(function (lastSelectedHostname) {
+        return {
+          hostnameSet: hostnameSet,
+          lastSelectedHostname: lastSelectedHostname
+        };
+      });
+    }).then(function (_a) {
+      var hostnameSet = _a.hostnameSet,
+          lastSelectedHostname = _a.lastSelectedHostname;
+      var data = {
+        hostnameSet: hostnameSet,
+        lastSelectedHostname: lastSelectedHostname,
+        styleSet: styleSet
+      };
+      var blob = new Blob([JSON.stringify(data)], {
+        type: 'application/json'
+      });
+      var aTag = document.createElement('a');
+      aTag.href = URL.createObjectURL(blob);
+      aTag.download = "chrome-usercss-hogashi-" + datetimeStr() + ".json";
+      aTag.click();
+    });
+  });
 };
 
 exports.downloadDataAsJson = downloadDataAsJson;
 
-var importDataToLocalStorage = function importDataToLocalStorage(str) {
+var importDataToStorage = function importDataToStorage(str) {
+  var _a;
+
   var data;
 
   try {
     data = JSON.parse(str);
-  } catch (_a) {
-    return false;
+  } catch (_b) {
+    return Promise.resolve(false);
   }
 
   var hostnameSet = data.hostnameSet,
       lastSelectedHostname = data.lastSelectedHostname,
       styleSet = data.styleSet;
-  localStorage.setItem(constants_1.HOSTNAME_SET, JSON.stringify(hostnameSet));
-  localStorage.setItem(constants_1.LAST_SELECTED_HOST_NAME, lastSelectedHostname);
+  var dataToSet = (_a = {}, _a[constants_1.HOSTNAME_SET] = JSON.stringify(hostnameSet), _a[constants_1.LAST_SELECTED_HOST_NAME] = lastSelectedHostname, _a);
   Object.keys(hostnameSet).map(function (hostname) {
-    localStorage.setItem(hostname, styleSet[hostname]);
+    dataToSet[hostname] = styleSet[hostname];
   });
-  return true;
+  return new Promise(function (resolve) {
+    return exports.setStorageItem(dataToSet, function () {
+      // 手でインポートしたときは移行済みの扱いとする
+      exports.setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE().then(function () {
+        return resolve(true);
+      });
+    });
+  });
 };
 
-exports.importDataToLocalStorage = importDataToLocalStorage;
+exports.importDataToStorage = importDataToStorage;
 
 /***/ })
 

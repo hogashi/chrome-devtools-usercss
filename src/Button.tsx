@@ -6,6 +6,7 @@ const DONE_CLEAR_TIME_MS = 1000; // 1s
 
 interface Props {
   id?: string;
+  className?: string;
   disabledWhen?: boolean;
   initValue: string;
   onClick: () => void;
@@ -16,7 +17,7 @@ interface Props {
 export const Button = React.forwardRef<HTMLButtonElement, Props>(
   // React.forwardRefで型はついてるはずなのでeslint無視する
   // eslint-disable-next-line react/prop-types
-  ({ id, disabledWhen, initValue, onClick }, ref) => {
+  ({ id, className, disabledWhen, initValue, onClick }, ref) => {
     const [timer, setTimer] = useState<number>();
     const [isDone, setIsDone] = useState(false);
 
@@ -43,7 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, Props>(
         id={id}
         disabled={disabledWhen || isDone}
         ref={ref}
-        className={isDone ? BUTTON_DONE_CLASS_NAME : ''}
+        className={[className, isDone ? BUTTON_DONE_CLASS_NAME : ''].join(' ')}
         onClick={onButtonClick}
       >
         {value}

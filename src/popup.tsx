@@ -11,10 +11,12 @@ import {
 } from './lib/constants';
 import { useSaveOnCtrlS, useWordWrapChecked } from './lib/hooks';
 import {
-  getLocalStorageItem,
+  setStorageItem,
+  getStorageItem,
   getHostnameSet,
-  importDataToLocalStorage,
+  importDataToStorage,
   downloadDataAsJson,
+  downloadDataAsJsonFromLocalStorage_FORMIGRATE,
 } from './lib/utils';
 
 // @ts-expect-error: MonacoEnvironment is undefined in window
@@ -45,18 +47,15 @@ const SAVE_BUTTON_INIT_VALUE = '保存';
 const IMPORT_BUTTON_INIT_VALUE = 'インポートする';
 const IMPORT_BUTTON_DONE_VALUE = '開き直して更新';
 const EXPORT_BUTTON_INIT_VALUE = 'エクスポートする';
+const EXPORT_FROM_LOCAL_STORAGE_BUTTON_INIT_VALUE =
+  'v0.2.0時点のデータからエクスポートする';
 
-const initHostnameSet = getHostnameSet();
-const lastSelectedHostname = (() => {
-  const lastSelected = getLocalStorageItem(LAST_SELECTED_HOST_NAME);
-  return initHostnameSet[lastSelected] ? lastSelected : '';
-})();
-const setLastSelectedHostname = (hostname: string): void =>
-  localStorage.setItem(LAST_SELECTED_HOST_NAME, hostname);
+const setLastSelectedHostname = (hostname: string): Promise<true> =>
+  setStorageItem({ [LAST_SELECTED_HOST_NAME]: hostname });
 
 const App: React.FC = () => {
-  const [hostname, setHostname] = useState(lastSelectedHostname);
-  const [hostnameSet, setHostnameSet] = useState(initHostnameSet);
+  const [hostname, setHostname] = useState('');
+  const [hostnameSet, setHostnameSet] = useState<HostnameSet>({});
   const [
     editor,
     setEditor,
@@ -70,6 +69,16 @@ const App: React.FC = () => {
   const [importButtonDone, setImportButtonDone] = useState(false);
 
   useSaveOnCtrlS(saveButtonRef);
+
+  // 最初に出すhostnameとか
+  useEffect(() => {
+    getHostnameSet().then(initHostnameSet => {
+      setHostnameSet(initHostnameSet);
+      getStorageItem(LAST_SELECTED_HOST_NAME).then(lastSelected => {
+        setHostname(initHostnameSet[lastSelected] ? lastSelected : '');
+      });
+    });
+  }, []);
 
   // エディタの初期化
   useEffect(() => {
@@ -91,13 +100,15 @@ const App: React.FC = () => {
 
   // hostnameたちの更新
   useEffect(() => {
-    localStorage.setItem(HOSTNAME_SET, JSON.stringify(hostnameSet));
+    setStorageItem({ [HOSTNAME_SET]: JSON.stringify(hostnameSet) });
   }, [hostnameSet]);
 
   // hostnameのUserCSSをエディタにセットする
   useEffect(() => {
     // hostnameを「前に最後に見てたhostname」として登録する
-    setLastSelectedHostname(hostname);
+    if (hostname !== '') {
+      setLastSelectedHostname(hostname);
+    }
 
     // hostnameをhostnameのinputにセットする
     setHostnameInputValue(hostname);
@@ -108,8 +119,9 @@ const App: React.FC = () => {
       return;
     }
 
-    const style = getLocalStorageItem(hostname);
-    editor?.setValue(style);
+    getStorageItem(hostname).then(style => {
+      editor?.setValue(style);
+    });
   }, [editor, hostname]);
 
   // EventListenerたち
@@ -165,7 +177,7 @@ const App: React.FC = () => {
 
     // エディタに書かれてる文字列を取ってきてhostnameのUserCSSとして登録する
     const newValue = editor.getValue();
-    localStorage.setItem(newHostname, newValue);
+    setStorageItem({ [newHostname]: newValue });
 
     // selectタグのoptionタグをhostnameにする
     setHostname(newHostname);
@@ -181,17 +193,22 @@ const App: React.FC = () => {
       ?.item(0)
       ?.text()
       .then(str => {
-        const isSuccess = importDataToLocalStorage(str);
-        if (isSuccess) {
-          // しました状態にする
-          setImportButtonDone(true);
-          setImportButtonDisabled(true);
-        }
+        importDataToStorage(str).then(isSuccess => {
+          if (isSuccess) {
+            // しました状態にする
+            setImportButtonDone(true);
+            setImportButtonDisabled(true);
+          }
+        });
       });
   }, [importInputRef]);
 
   const onExportButtonClick = useCallback(() => {
     downloadDataAsJson();
+  }, []);
+
+  const onExportFromLocalStorageButtonClick = useCallback(() => {
+    downloadDataAsJsonFromLocalStorage_FORMIGRATE();
   }, []);
 
   // hostnameのoptionタグをつくる
@@ -288,6 +305,16 @@ const App: React.FC = () => {
           <Button
             initValue={EXPORT_BUTTON_INIT_VALUE}
             onClick={onExportButtonClick}
+          />
+        </div>
+        <div>
+          <span className={'export-from-local-storage-label'}>
+            何かおかしかったらここからエクスポート→インポートし直してください:
+          </span>
+          <Button
+            className={'export-from-local-storage'}
+            initValue={EXPORT_FROM_LOCAL_STORAGE_BUTTON_INIT_VALUE}
+            onClick={onExportFromLocalStorageButtonClick}
           />
         </div>
       </details>

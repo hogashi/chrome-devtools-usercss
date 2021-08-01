@@ -6,7 +6,7 @@
 body {
   width: 500px;
   margin: 0;
-  padding: 15px;
+  padding: 7px 12px;
 }
 input, select {
   font-family: monospace;
@@ -75,10 +75,7 @@ div#remove-hostname {
   flex: 0 1 80px;
 }
 hr.root-hr {
-  margin: 10px 0 3px;
-}
-#export-import-container {
-  margin-top: 10px;
+  margin: 5px 0;
 }
 #export-import-container summary {
   cursor: pointer;
@@ -86,14 +83,21 @@ hr.root-hr {
 #export-import-container button {
   width: 130px;
 }
+#export-import-container .export-from-local-storage-label {
+  width: 200px;
+  font-size: 0.9em;
+}
+#export-import-container button.export-from-local-storage {
+  width: 280px;
+}
 #export-import-container > div {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  margin: 10px 10px 0;
+  margin: 7px 10px;
 }
 #export-import-container hr {
-  margin: 10px 10px 0;
+  margin: 4px 10px;
   border-color: rgb(255 255 255 / 50%);
 }
 #export-import-container input[type="file"] {

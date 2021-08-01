@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "chrome-usercss-hogashi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "usercss for each site",
   "author": "hogashi",
   "icons": {
@@ -9,12 +9,10 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
+  "permissions": ["storage"],
   "content_scripts": [
     {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["index.js"]
     }
   ],

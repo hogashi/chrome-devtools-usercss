@@ -5,4 +5,3 @@
 chrome extension which inserts usercss for each site: https://chrome.google.com/webstore/detail/chrome-usercss-hogashi/bddeakjniijkggfocbdngafgdjkljkje
 
 ![example screenshot; usercss for github.com](./screenshot.png)
-

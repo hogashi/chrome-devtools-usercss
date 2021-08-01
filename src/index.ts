@@ -4,9 +4,8 @@ const message: GetStyleMessage = {
   hostname: location.hostname,
 };
 
-const responseCallback: SendGetStyleResponse = response => {
-  const style = response.style;
-  if (style === null) {
+const responseCallback: SendGetStyleResponse = ({ style }) => {
+  if (style === '') {
     return;
   }
 
