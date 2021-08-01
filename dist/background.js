@@ -42,7 +42,7 @@ var getStyle = function getStyle(message, _, sendResponse) {
   return true;
 };
 
-window.chrome.runtime.onMessage.addListener(getStyle); // TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
+chrome.runtime.onMessage.addListener(getStyle); // TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
 
 window.chrome.runtime.onInstalled.addListener(utils_1.migrateToStorage_FORMIGRATE);
 
@@ -246,7 +246,7 @@ var downloadDataAsJson = function downloadDataAsJson() {
         type: 'application/json'
       });
       var aTag = document.createElement('a');
-      aTag.href = window.URL.createObjectURL(blob);
+      aTag.href = URL.createObjectURL(blob);
       aTag.download = "chrome-usercss-hogashi-" + datetimeStr() + ".json";
       aTag.click();
     });
