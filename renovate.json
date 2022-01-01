@@ -10,8 +10,12 @@
       "postUpdateOptions": ["yarnDedupeHighest"]
     },
     {
-      "packagePatterns": ["^@types/react(|-dom)$"],
+      "packagePatterns": ["^@types/react(-dom)?$"],
       "groupName": "@types/react, @types/react-dom"
+    },
+    {
+      "packagePatterns": ["^monaco-editor(-webpack-plugin)?$"],
+      "groupName": "monaco-editor, monaco-editor-webpack-plugin"
     }
   ]
 }
