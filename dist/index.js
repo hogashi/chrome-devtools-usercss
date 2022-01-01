@@ -1,10 +1,9 @@
 /******/ (() => { // webpackBootstrap
 /******/ 	"use strict";
-/******/ 	var __webpack_modules__ = ({
-
-/***/ 991:
-/***/ ((__unused_webpack_module, exports) => {
-
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it uses a non-standard name for the exports (exports).
+(() => {
+var exports = __webpack_exports__;
 var __webpack_unused_export__;
 
 
@@ -24,42 +23,11 @@ var responseCallback = function responseCallback(_a) {
     return;
   }
 
-  (_b = document.querySelector('body')) === null || _b === void 0 ? void 0 : _b.insertAdjacentHTML('beforeend', "<style data-usercss>" + style + "</style>");
+  (_b = document.querySelector('body')) === null || _b === void 0 ? void 0 : _b.insertAdjacentHTML('beforeend', "<style data-usercss>".concat(style, "</style>"));
 };
 
 window.chrome.runtime.sendMessage(message, responseCallback);
+})();
 
-/***/ })
-
-/******/ 	});
-/************************************************************************/
-/******/ 	// The module cache
-/******/ 	var __webpack_module_cache__ = {};
-/******/ 	
-/******/ 	// The require function
-/******/ 	function __webpack_require__(moduleId) {
-/******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
-/******/ 		}
-/******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
-/******/ 			exports: {}
-/******/ 		};
-/******/ 	
-/******/ 		// Execute the module function
-/******/ 		__webpack_modules__[moduleId](module, module.exports, __webpack_require__);
-/******/ 	
-/******/ 		// Return the exports of the module
-/******/ 		return module.exports;
-/******/ 	}
-/******/ 	
-/************************************************************************/
-/******/ 	// startup
-/******/ 	// Load entry module
-/******/ 	__webpack_require__(991);
-/******/ 	// This entry module used 'exports' so it can't be inlined
 /******/ })()
 ;

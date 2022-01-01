@@ -17,14 +17,11 @@
 /******/ 	})();
 /******/ 	
 /************************************************************************/
+var __webpack_exports__ = {};
 
 // UNUSED EXPORTS: initialize
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/errors.js
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 // Avoid circular dependency on EventEmitter by implementing a subset of the interface.
 class ErrorHandler {
     constructor() {
@@ -96,7 +93,7 @@ function canceled() {
     error.name = error.message;
     return error;
 }
-function errors_illegalArgument(name) {
+function illegalArgument(name) {
     if (name) {
         return new Error(`Illegal argument: ${name}`);
     }
@@ -111,6 +108,33 @@ function illegalState(name) {
     else {
         return new Error('Illegal state');
     }
+}
+class NotSupportedError extends Error {
+    constructor(message) {
+        super('NotSupported');
+        if (message) {
+            this.message = message;
+        }
+    }
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/functional.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+function once(fn) {
+    const _this = this;
+    let didCall = false;
+    let result;
+    return function () {
+        if (didCall) {
+            return result;
+        }
+        didCall = true;
+        result = fn.apply(_this, arguments);
+        return result;
+    };
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/iterator.js
@@ -137,6 +161,10 @@ var Iterable;
         return iterable || _empty;
     }
     Iterable.from = from;
+    function isEmpty(iterable) {
+        return !iterable || iterable[Symbol.iterator]().next().done === true;
+    }
+    Iterable.isEmpty = isEmpty;
     function first(iterable) {
         return iterable[Symbol.iterator]().next().value;
     }
@@ -150,6 +178,15 @@ var Iterable;
         return false;
     }
     Iterable.some = some;
+    function find(iterable, predicate) {
+        for (const element of iterable) {
+            if (predicate(element)) {
+                return element;
+            }
+        }
+        return undefined;
+    }
+    Iterable.find = find;
     function* filter(iterable, predicate) {
         for (const element of iterable) {
             if (predicate(element)) {
@@ -159,8 +196,9 @@ var Iterable;
     }
     Iterable.filter = filter;
     function* map(iterable, fn) {
+        let index = 0;
         for (const element of iterable) {
-            yield fn(element);
+            yield fn(element, index++);
         }
     }
     Iterable.map = map;
@@ -172,6 +210,40 @@ var Iterable;
         }
     }
     Iterable.concat = concat;
+    function* concatNested(iterables) {
+        for (const iterable of iterables) {
+            for (const element of iterable) {
+                yield element;
+            }
+        }
+    }
+    Iterable.concatNested = concatNested;
+    function reduce(iterable, reducer, initialValue) {
+        let value = initialValue;
+        for (const element of iterable) {
+            value = reducer(value, element);
+        }
+        return value;
+    }
+    Iterable.reduce = reduce;
+    /**
+     * Returns an iterable slice of the array, with the same semantics as `array.slice()`.
+     */
+    function* slice(arr, from, to = arr.length) {
+        if (from < 0) {
+            from += arr.length;
+        }
+        if (to < 0) {
+            to += arr.length;
+        }
+        else if (to > arr.length) {
+            to = arr.length;
+        }
+        for (; from < to; from++) {
+            yield arr[from];
+        }
+    }
+    Iterable.slice = slice;
     /**
      * Consumes `atMost` elements from iterable and returns the consumed elements,
      * and an iterable for the rest of the elements.
@@ -192,9 +264,36 @@ var Iterable;
         return [consumed, { [Symbol.iterator]() { return iterator; } }];
     }
     Iterable.consume = consume;
+    /**
+     * Returns whether the iterables are the same length and all items are
+     * equal using the comparator function.
+     */
+    function equals(a, b, comparator = (at, bt) => at === bt) {
+        const ai = a[Symbol.iterator]();
+        const bi = b[Symbol.iterator]();
+        while (true) {
+            const an = ai.next();
+            const bn = bi.next();
+            if (an.done !== bn.done) {
+                return false;
+            }
+            else if (an.done) {
+                return true;
+            }
+            else if (!comparator(an.value, bn.value)) {
+                return false;
+            }
+        }
+    }
+    Iterable.equals = equals;
 })(Iterable || (Iterable = {}));
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/lifecycle.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
 
 /**
  * Enables logging of potentially leaked disposables.
@@ -204,35 +303,72 @@ var Iterable;
  * extend Disposable or use a DisposableStore. This means there are a lot of false positives.
  */
 const TRACK_DISPOSABLES = false;
-const __is_disposable_tracked__ = '__is_disposable_tracked__';
-function markTracked(x) {
-    if (!TRACK_DISPOSABLES) {
-        return;
-    }
-    if (x && x !== lifecycle_Disposable.None) {
-        try {
-            x[__is_disposable_tracked__] = true;
+let disposableTracker = null;
+function setDisposableTracker(tracker) {
+    disposableTracker = tracker;
+}
+if (TRACK_DISPOSABLES) {
+    const __is_disposable_tracked__ = '__is_disposable_tracked__';
+    setDisposableTracker(new class {
+        trackDisposable(x) {
+            const stack = new Error('Potentially leaked disposable').stack;
+            setTimeout(() => {
+                if (!x[__is_disposable_tracked__]) {
+                    console.log(stack);
+                }
+            }, 3000);
         }
-        catch (_a) {
-            // noop
+        setParent(child, parent) {
+            if (child && child !== lifecycle_Disposable.None) {
+                try {
+                    child[__is_disposable_tracked__] = true;
+                }
+                catch (_a) {
+                    // noop
+                }
+            }
         }
-    }
+        markAsDisposed(disposable) {
+            if (disposable && disposable !== lifecycle_Disposable.None) {
+                try {
+                    disposable[__is_disposable_tracked__] = true;
+                }
+                catch (_a) {
+                    // noop
+                }
+            }
+        }
+        markAsSingleton(disposable) { }
+    });
 }
 function trackDisposable(x) {
-    if (!TRACK_DISPOSABLES) {
-        return x;
-    }
-    const stack = new Error('Potentially leaked disposable').stack;
-    setTimeout(() => {
-        if (!x[__is_disposable_tracked__]) {
-            console.log(stack);
-        }
-    }, 3000);
+    disposableTracker === null || disposableTracker === void 0 ? void 0 : disposableTracker.trackDisposable(x);
     return x;
+}
+function markAsDisposed(disposable) {
+    disposableTracker === null || disposableTracker === void 0 ? void 0 : disposableTracker.markAsDisposed(disposable);
+}
+function setParentOfDisposable(child, parent) {
+    disposableTracker === null || disposableTracker === void 0 ? void 0 : disposableTracker.setParent(child, parent);
+}
+function setParentOfDisposables(children, parent) {
+    if (!disposableTracker) {
+        return;
+    }
+    for (const child of children) {
+        disposableTracker.setParent(child, parent);
+    }
+}
+/**
+ * Indicates that the given object is a singleton which does not need to be disposed.
+*/
+function markAsSingleton(singleton) {
+    disposableTracker === null || disposableTracker === void 0 ? void 0 : disposableTracker.markAsSingleton(singleton);
+    return singleton;
 }
 class MultiDisposeError extends Error {
     constructor(errors) {
-        super(`Encounter errors while disposing of store. Errors: [${errors.join(', ')}]`);
+        super(`Encountered errors while disposing of store. Errors: [${errors.join(', ')}]`);
         this.errors = errors;
     }
 }
@@ -244,7 +380,6 @@ function dispose(arg) {
         let errors = [];
         for (const d of arg) {
             if (d) {
-                markTracked(d);
                 try {
                     d.dispose();
                 }
@@ -262,21 +397,21 @@ function dispose(arg) {
         return Array.isArray(arg) ? [] : arg;
     }
     else if (arg) {
-        markTracked(arg);
         arg.dispose();
         return arg;
     }
 }
 function combinedDisposable(...disposables) {
-    disposables.forEach(markTracked);
-    return trackDisposable({ dispose: () => dispose(disposables) });
+    const parent = toDisposable(() => dispose(disposables));
+    setParentOfDisposables(disposables, parent);
+    return parent;
 }
 function toDisposable(fn) {
     const self = trackDisposable({
-        dispose: () => {
-            markTracked(self);
+        dispose: once(() => {
+            markAsDisposed(self);
             fn();
-        }
+        })
     });
     return self;
 }
@@ -284,6 +419,7 @@ class DisposableStore {
     constructor() {
         this._toDispose = new Set();
         this._isDisposed = false;
+        trackDisposable(this);
     }
     /**
      * Dispose of all registered disposables and mark this object as disposed.
@@ -294,7 +430,7 @@ class DisposableStore {
         if (this._isDisposed) {
             return;
         }
-        markTracked(this);
+        markAsDisposed(this);
         this._isDisposed = true;
         this.clear();
     }
@@ -309,23 +445,23 @@ class DisposableStore {
             this._toDispose.clear();
         }
     }
-    add(t) {
-        if (!t) {
-            return t;
+    add(o) {
+        if (!o) {
+            return o;
         }
-        if (t === this) {
+        if (o === this) {
             throw new Error('Cannot register a disposable on itself!');
         }
-        markTracked(t);
+        setParentOfDisposable(o, this);
         if (this._isDisposed) {
             if (!DisposableStore.DISABLE_DISPOSED_WARNING) {
                 console.warn(new Error('Trying to add a disposable to a DisposableStore that has already been disposed of. The added object will be leaked!').stack);
             }
         }
         else {
-            this._toDispose.add(t);
+            this._toDispose.add(o);
         }
-        return t;
+        return o;
     }
 }
 DisposableStore.DISABLE_DISPOSED_WARNING = false;
@@ -333,16 +469,17 @@ class lifecycle_Disposable {
     constructor() {
         this._store = new DisposableStore();
         trackDisposable(this);
+        setParentOfDisposable(this._store, this);
     }
     dispose() {
-        markTracked(this);
+        markAsDisposed(this);
         this._store.dispose();
     }
-    _register(t) {
-        if (t === this) {
+    _register(o) {
+        if (o === this) {
             throw new Error('Cannot register a disposable on itself!');
         }
-        return this._store.add(t);
+        return this._store.add(o);
     }
 }
 lifecycle_Disposable.None = Object.freeze({ dispose() { } });
@@ -361,14 +498,13 @@ class MutableDisposable {
         return this._isDisposed ? undefined : this._value;
     }
     set value(value) {
+        var _a;
         if (this._isDisposed || value === this._value) {
             return;
         }
-        if (this._value) {
-            this._value.dispose();
-        }
+        (_a = this._value) === null || _a === void 0 ? void 0 : _a.dispose();
         if (value) {
-            markTracked(value);
+            setParentOfDisposable(value, this);
         }
         this._value = value;
     }
@@ -376,12 +512,23 @@ class MutableDisposable {
         this.value = undefined;
     }
     dispose() {
+        var _a;
         this._isDisposed = true;
-        markTracked(this);
-        if (this._value) {
-            this._value.dispose();
-        }
+        markAsDisposed(this);
+        (_a = this._value) === null || _a === void 0 ? void 0 : _a.dispose();
         this._value = undefined;
+    }
+    /**
+     * Clears the value, but does not dispose it.
+     * The old value is returned.
+    */
+    clearAndLeak() {
+        const oldValue = this._value;
+        this._value = undefined;
+        if (oldValue) {
+            setParentOfDisposable(oldValue, null);
+        }
+        return oldValue;
     }
 }
 class ImmortalReference {
@@ -391,24 +538,164 @@ class ImmortalReference {
     dispose() { }
 }
 
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/linkedList.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+class Node {
+    constructor(element) {
+        this.element = element;
+        this.next = Node.Undefined;
+        this.prev = Node.Undefined;
+    }
+}
+Node.Undefined = new Node(undefined);
+class linkedList_LinkedList {
+    constructor() {
+        this._first = Node.Undefined;
+        this._last = Node.Undefined;
+        this._size = 0;
+    }
+    get size() {
+        return this._size;
+    }
+    isEmpty() {
+        return this._first === Node.Undefined;
+    }
+    clear() {
+        let node = this._first;
+        while (node !== Node.Undefined) {
+            const next = node.next;
+            node.prev = Node.Undefined;
+            node.next = Node.Undefined;
+            node = next;
+        }
+        this._first = Node.Undefined;
+        this._last = Node.Undefined;
+        this._size = 0;
+    }
+    unshift(element) {
+        return this._insert(element, false);
+    }
+    push(element) {
+        return this._insert(element, true);
+    }
+    _insert(element, atTheEnd) {
+        const newNode = new Node(element);
+        if (this._first === Node.Undefined) {
+            this._first = newNode;
+            this._last = newNode;
+        }
+        else if (atTheEnd) {
+            // push
+            const oldLast = this._last;
+            this._last = newNode;
+            newNode.prev = oldLast;
+            oldLast.next = newNode;
+        }
+        else {
+            // unshift
+            const oldFirst = this._first;
+            this._first = newNode;
+            newNode.next = oldFirst;
+            oldFirst.prev = newNode;
+        }
+        this._size += 1;
+        let didRemove = false;
+        return () => {
+            if (!didRemove) {
+                didRemove = true;
+                this._remove(newNode);
+            }
+        };
+    }
+    shift() {
+        if (this._first === Node.Undefined) {
+            return undefined;
+        }
+        else {
+            const res = this._first.element;
+            this._remove(this._first);
+            return res;
+        }
+    }
+    pop() {
+        if (this._last === Node.Undefined) {
+            return undefined;
+        }
+        else {
+            const res = this._last.element;
+            this._remove(this._last);
+            return res;
+        }
+    }
+    _remove(node) {
+        if (node.prev !== Node.Undefined && node.next !== Node.Undefined) {
+            // middle
+            const anchor = node.prev;
+            anchor.next = node.next;
+            node.next.prev = anchor;
+        }
+        else if (node.prev === Node.Undefined && node.next === Node.Undefined) {
+            // only node
+            this._first = Node.Undefined;
+            this._last = Node.Undefined;
+        }
+        else if (node.next === Node.Undefined) {
+            // last
+            this._last = this._last.prev;
+            this._last.next = Node.Undefined;
+        }
+        else if (node.prev === Node.Undefined) {
+            // first
+            this._first = this._first.next;
+            this._first.prev = Node.Undefined;
+        }
+        // done
+        this._size -= 1;
+    }
+    *[Symbol.iterator]() {
+        let node = this._first;
+        while (node !== Node.Undefined) {
+            yield node.element;
+            node = node.next;
+        }
+    }
+}
+
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/platform.js
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+var _a;
 const LANGUAGE_DEFAULT = 'en';
 let _isWindows = false;
 let _isMacintosh = false;
 let _isLinux = false;
+let _isLinuxSnap = false;
 let _isNative = false;
 let _isWeb = false;
+let _isElectron = false;
 let _isIOS = false;
 let _locale = undefined;
-let _language = (/* unused pure expression or super */ null && (LANGUAGE_DEFAULT));
-let _translationsConfigFile = undefined;
+let _language = LANGUAGE_DEFAULT;
+let _translationsConfigFile = (/* unused pure expression or super */ null && (undefined));
 let _userAgent = undefined;
-const isElectronRenderer = (typeof process !== 'undefined' && typeof process.versions !== 'undefined' && typeof process.versions.electron !== 'undefined' && process.type === 'renderer');
-// OS detection
+const platform_globals = (typeof self === 'object' ? self : typeof __webpack_require__.g === 'object' ? __webpack_require__.g : {});
+let nodeProcess = undefined;
+if (typeof platform_globals.vscode !== 'undefined' && typeof platform_globals.vscode.process !== 'undefined') {
+    // Native environment (sandboxed)
+    nodeProcess = platform_globals.vscode.process;
+}
+else if (typeof process !== 'undefined') {
+    // Native environment (non-sandboxed)
+    nodeProcess = process;
+}
+const isElectronProcess = typeof ((_a = nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.versions) === null || _a === void 0 ? void 0 : _a.electron) === 'string';
+const isElectronRenderer = isElectronProcess && (nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.type) === 'renderer';
+// Web environment
 if (typeof navigator === 'object' && !isElectronRenderer) {
     _userAgent = navigator.userAgent;
     _isWindows = _userAgent.indexOf('Windows') >= 0;
@@ -419,13 +706,16 @@ if (typeof navigator === 'object' && !isElectronRenderer) {
     _locale = navigator.language;
     _language = _locale;
 }
-else if (typeof process === 'object') {
-    _isWindows = (process.platform === 'win32');
-    _isMacintosh = (process.platform === 'darwin');
-    _isLinux = (process.platform === 'linux');
+// Native environment
+else if (typeof nodeProcess === 'object') {
+    _isWindows = (nodeProcess.platform === 'win32');
+    _isMacintosh = (nodeProcess.platform === 'darwin');
+    _isLinux = (nodeProcess.platform === 'linux');
+    _isLinuxSnap = _isLinux && !!nodeProcess.env['SNAP'] && !!nodeProcess.env['SNAP_REVISION'];
+    _isElectron = isElectronProcess;
     _locale = LANGUAGE_DEFAULT;
     _language = LANGUAGE_DEFAULT;
-    const rawNlsConfig = process.env['VSCODE_NLS_CONFIG'];
+    const rawNlsConfig = nodeProcess.env['VSCODE_NLS_CONFIG'];
     if (rawNlsConfig) {
         try {
             const nlsConfig = JSON.parse(rawNlsConfig);
@@ -439,6 +729,10 @@ else if (typeof process === 'object') {
         }
     }
     _isNative = true;
+}
+// Unknown environment
+else {
+    console.error('Unable to resolve platform.');
 }
 let _platform = 0 /* Web */;
 if (_isMacintosh) {
@@ -456,19 +750,33 @@ const isLinux = (/* unused pure expression or super */ null && (_isLinux));
 const isNative = (/* unused pure expression or super */ null && (_isNative));
 const platform_isWeb = (/* unused pure expression or super */ null && (_isWeb));
 const isIOS = (/* unused pure expression or super */ null && (_isIOS));
-const _globals = (typeof self === 'object' ? self : typeof __webpack_require__.g === 'object' ? __webpack_require__.g : {});
-const globals = _globals;
-const setImmediate = (function defineSetImmediate() {
-    if (globals.setImmediate) {
-        return globals.setImmediate.bind(globals);
-    }
-    if (typeof globals.postMessage === 'function' && !globals.importScripts) {
+const userAgent = (/* unused pure expression or super */ null && (_userAgent));
+/**
+ * The language used for the user interface. The format of
+ * the string is all lower case (e.g. zh-tw for Traditional
+ * Chinese)
+ */
+const language = _language;
+/**
+ * The OS locale or the locale specified by --locale. The format of
+ * the string is all lower case (e.g. zh-tw for Traditional
+ * Chinese). The UI is not necessarily shown in the provided locale.
+ */
+const platform_locale = _locale;
+/**
+ * See https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#:~:text=than%204%2C%20then-,set%20timeout%20to%204,-.
+ *
+ * Works similarly to `setTimeout(0)` but doesn't suffer from the 4ms artificial delay
+ * that browsers set when the nesting level is > 5.
+ */
+const setTimeout0 = (() => {
+    if (typeof platform_globals.postMessage === 'function' && !platform_globals.importScripts) {
         let pending = [];
-        globals.addEventListener('message', (e) => {
-            if (e.data && e.data.vscodeSetImmediateId) {
+        platform_globals.addEventListener('message', (e) => {
+            if (e.data && e.data.vscodeScheduleAsyncWork) {
                 for (let i = 0, len = pending.length; i < len; i++) {
                     const candidate = pending[i];
-                    if (candidate.id === e.data.vscodeSetImmediateId) {
+                    if (candidate.id === e.data.vscodeScheduleAsyncWork) {
                         pending.splice(i, 1);
                         candidate.callback();
                         return;
@@ -483,11 +791,20 @@ const setImmediate = (function defineSetImmediate() {
                 id: myId,
                 callback: callback
             });
-            globals.postMessage({ vscodeSetImmediateId: myId }, '*');
+            platform_globals.postMessage({ vscodeScheduleAsyncWork: myId }, '*');
         };
     }
-    if (typeof process !== 'undefined' && typeof process.nextTick === 'function') {
-        return process.nextTick.bind(process);
+    return (callback) => setTimeout(callback);
+})();
+const setImmediate = (function defineSetImmediate() {
+    if (platform_globals.setImmediate) {
+        return platform_globals.setImmediate.bind(platform_globals);
+    }
+    if (typeof platform_globals.postMessage === 'function' && !platform_globals.importScripts) {
+        return setTimeout0;
+    }
+    if (typeof (nodeProcess === null || nodeProcess === void 0 ? void 0 : nodeProcess.nextTick) === 'function') {
+        return nodeProcess.nextTick.bind(nodeProcess);
     }
     const _promise = Promise.resolve();
     return (callback) => _promise.then(callback);
@@ -507,11 +824,627 @@ function isLittleEndian() {
     return _isLittleEndian;
 }
 
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/stopwatch.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+const hasPerformanceNow = (platform_globals.performance && typeof platform_globals.performance.now === 'function');
+class StopWatch {
+    constructor(highResolution) {
+        this._highResolution = hasPerformanceNow && highResolution;
+        this._startTime = this._now();
+        this._stopTime = -1;
+    }
+    static create(highResolution = true) {
+        return new StopWatch(highResolution);
+    }
+    stop() {
+        this._stopTime = this._now();
+    }
+    elapsed() {
+        if (this._stopTime !== -1) {
+            return this._stopTime - this._startTime;
+        }
+        return this._now() - this._startTime;
+    }
+    _now() {
+        return this._highResolution ? platform_globals.performance.now() : Date.now();
+    }
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/event.js
+
+
+
+
+var Event;
+(function (Event) {
+    Event.None = () => lifecycle_Disposable.None;
+    /**
+     * Given an event, returns another event which only fires once.
+     */
+    function once(event) {
+        return (listener, thisArgs = null, disposables) => {
+            // we need this, in case the event fires during the listener call
+            let didFire = false;
+            let result;
+            result = event(e => {
+                if (didFire) {
+                    return;
+                }
+                else if (result) {
+                    result.dispose();
+                }
+                else {
+                    didFire = true;
+                }
+                return listener.call(thisArgs, e);
+            }, null, disposables);
+            if (didFire) {
+                result.dispose();
+            }
+            return result;
+        };
+    }
+    Event.once = once;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function map(event, map) {
+        return snapshot((listener, thisArgs = null, disposables) => event(i => listener.call(thisArgs, map(i)), null, disposables));
+    }
+    Event.map = map;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function forEach(event, each) {
+        return snapshot((listener, thisArgs = null, disposables) => event(i => { each(i); listener.call(thisArgs, i); }, null, disposables));
+    }
+    Event.forEach = forEach;
+    function filter(event, filter) {
+        return snapshot((listener, thisArgs = null, disposables) => event(e => filter(e) && listener.call(thisArgs, e), null, disposables));
+    }
+    Event.filter = filter;
+    /**
+     * Given an event, returns the same event but typed as `Event<void>`.
+     */
+    function signal(event) {
+        return event;
+    }
+    Event.signal = signal;
+    function any(...events) {
+        return (listener, thisArgs = null, disposables) => combinedDisposable(...events.map(event => event(e => listener.call(thisArgs, e), null, disposables)));
+    }
+    Event.any = any;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function reduce(event, merge, initial) {
+        let output = initial;
+        return map(event, e => {
+            output = merge(output, e);
+            return output;
+        });
+    }
+    Event.reduce = reduce;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function snapshot(event) {
+        let listener;
+        const emitter = new Emitter({
+            onFirstListenerAdd() {
+                listener = event(emitter.fire, emitter);
+            },
+            onLastListenerRemove() {
+                listener.dispose();
+            }
+        });
+        return emitter.event;
+    }
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function debounce(event, merge, delay = 100, leading = false, leakWarningThreshold) {
+        let subscription;
+        let output = undefined;
+        let handle = undefined;
+        let numDebouncedCalls = 0;
+        const emitter = new Emitter({
+            leakWarningThreshold,
+            onFirstListenerAdd() {
+                subscription = event(cur => {
+                    numDebouncedCalls++;
+                    output = merge(output, cur);
+                    if (leading && !handle) {
+                        emitter.fire(output);
+                        output = undefined;
+                    }
+                    clearTimeout(handle);
+                    handle = setTimeout(() => {
+                        const _output = output;
+                        output = undefined;
+                        handle = undefined;
+                        if (!leading || numDebouncedCalls > 1) {
+                            emitter.fire(_output);
+                        }
+                        numDebouncedCalls = 0;
+                    }, delay);
+                });
+            },
+            onLastListenerRemove() {
+                subscription.dispose();
+            }
+        });
+        return emitter.event;
+    }
+    Event.debounce = debounce;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function latch(event, equals = (a, b) => a === b) {
+        let firstCall = true;
+        let cache;
+        return filter(event, value => {
+            const shouldEmit = firstCall || !equals(value, cache);
+            firstCall = false;
+            cache = value;
+            return shouldEmit;
+        });
+    }
+    Event.latch = latch;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function split(event, isT) {
+        return [
+            Event.filter(event, isT),
+            Event.filter(event, e => !isT(e)),
+        ];
+    }
+    Event.split = split;
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function buffer(event, flushAfterTimeout = false, _buffer = []) {
+        let buffer = _buffer.slice();
+        let listener = event(e => {
+            if (buffer) {
+                buffer.push(e);
+            }
+            else {
+                emitter.fire(e);
+            }
+        });
+        const flush = () => {
+            if (buffer) {
+                buffer.forEach(e => emitter.fire(e));
+            }
+            buffer = null;
+        };
+        const emitter = new Emitter({
+            onFirstListenerAdd() {
+                if (!listener) {
+                    listener = event(e => emitter.fire(e));
+                }
+            },
+            onFirstListenerDidAdd() {
+                if (buffer) {
+                    if (flushAfterTimeout) {
+                        setTimeout(flush);
+                    }
+                    else {
+                        flush();
+                    }
+                }
+            },
+            onLastListenerRemove() {
+                if (listener) {
+                    listener.dispose();
+                }
+                listener = null;
+            }
+        });
+        return emitter.event;
+    }
+    Event.buffer = buffer;
+    class ChainableEvent {
+        constructor(event) {
+            this.event = event;
+        }
+        map(fn) {
+            return new ChainableEvent(map(this.event, fn));
+        }
+        forEach(fn) {
+            return new ChainableEvent(forEach(this.event, fn));
+        }
+        filter(fn) {
+            return new ChainableEvent(filter(this.event, fn));
+        }
+        reduce(merge, initial) {
+            return new ChainableEvent(reduce(this.event, merge, initial));
+        }
+        latch() {
+            return new ChainableEvent(latch(this.event));
+        }
+        debounce(merge, delay = 100, leading = false, leakWarningThreshold) {
+            return new ChainableEvent(debounce(this.event, merge, delay, leading, leakWarningThreshold));
+        }
+        on(listener, thisArgs, disposables) {
+            return this.event(listener, thisArgs, disposables);
+        }
+        once(listener, thisArgs, disposables) {
+            return once(this.event)(listener, thisArgs, disposables);
+        }
+    }
+    /**
+     * @deprecated DO NOT use, this leaks memory
+     */
+    function chain(event) {
+        return new ChainableEvent(event);
+    }
+    Event.chain = chain;
+    function fromNodeEventEmitter(emitter, eventName, map = id => id) {
+        const fn = (...args) => result.fire(map(...args));
+        const onFirstListenerAdd = () => emitter.on(eventName, fn);
+        const onLastListenerRemove = () => emitter.removeListener(eventName, fn);
+        const result = new Emitter({ onFirstListenerAdd, onLastListenerRemove });
+        return result.event;
+    }
+    Event.fromNodeEventEmitter = fromNodeEventEmitter;
+    function fromDOMEventEmitter(emitter, eventName, map = id => id) {
+        const fn = (...args) => result.fire(map(...args));
+        const onFirstListenerAdd = () => emitter.addEventListener(eventName, fn);
+        const onLastListenerRemove = () => emitter.removeEventListener(eventName, fn);
+        const result = new Emitter({ onFirstListenerAdd, onLastListenerRemove });
+        return result.event;
+    }
+    Event.fromDOMEventEmitter = fromDOMEventEmitter;
+    function toPromise(event) {
+        return new Promise(resolve => once(event)(resolve));
+    }
+    Event.toPromise = toPromise;
+})(Event || (Event = {}));
+class EventProfiling {
+    constructor(name) {
+        this._listenerCount = 0;
+        this._invocationCount = 0;
+        this._elapsedOverall = 0;
+        this._name = `${name}_${EventProfiling._idPool++}`;
+    }
+    start(listenerCount) {
+        this._stopWatch = new StopWatch(true);
+        this._listenerCount = listenerCount;
+    }
+    stop() {
+        if (this._stopWatch) {
+            const elapsed = this._stopWatch.elapsed();
+            this._elapsedOverall += elapsed;
+            this._invocationCount += 1;
+            console.info(`did FIRE ${this._name}: elapsed_ms: ${elapsed.toFixed(5)}, listener: ${this._listenerCount} (elapsed_overall: ${this._elapsedOverall.toFixed(2)}, invocations: ${this._invocationCount})`);
+            this._stopWatch = undefined;
+        }
+    }
+}
+EventProfiling._idPool = 0;
+let _globalLeakWarningThreshold = -1;
+class LeakageMonitor {
+    constructor(customThreshold, name = Math.random().toString(18).slice(2, 5)) {
+        this.customThreshold = customThreshold;
+        this.name = name;
+        this._warnCountdown = 0;
+    }
+    dispose() {
+        if (this._stacks) {
+            this._stacks.clear();
+        }
+    }
+    check(listenerCount) {
+        let threshold = _globalLeakWarningThreshold;
+        if (typeof this.customThreshold === 'number') {
+            threshold = this.customThreshold;
+        }
+        if (threshold <= 0 || listenerCount < threshold) {
+            return undefined;
+        }
+        if (!this._stacks) {
+            this._stacks = new Map();
+        }
+        const stack = new Error().stack.split('\n').slice(3).join('\n');
+        const count = (this._stacks.get(stack) || 0);
+        this._stacks.set(stack, count + 1);
+        this._warnCountdown -= 1;
+        if (this._warnCountdown <= 0) {
+            // only warn on first exceed and then every time the limit
+            // is exceeded by 50% again
+            this._warnCountdown = threshold * 0.5;
+            // find most frequent listener and print warning
+            let topStack;
+            let topCount = 0;
+            for (const [stack, count] of this._stacks) {
+                if (!topStack || topCount < count) {
+                    topStack = stack;
+                    topCount = count;
+                }
+            }
+            console.warn(`[${this.name}] potential listener LEAK detected, having ${listenerCount} listeners already. MOST frequent listener (${topCount}):`);
+            console.warn(topStack);
+        }
+        return () => {
+            const count = (this._stacks.get(stack) || 0);
+            this._stacks.set(stack, count - 1);
+        };
+    }
+}
+/**
+ * The Emitter can be used to expose an Event to the public
+ * to fire it from the insides.
+ * Sample:
+    class Document {
+
+        private readonly _onDidChange = new Emitter<(value:string)=>any>();
+
+        public onDidChange = this._onDidChange.event;
+
+        // getter-style
+        // get onDidChange(): Event<(value:string)=>any> {
+        // 	return this._onDidChange.event;
+        // }
+
+        private _doIt() {
+            //...
+            this._onDidChange.fire(value);
+        }
+    }
+ */
+class Emitter {
+    constructor(options) {
+        var _a;
+        this._disposed = false;
+        this._options = options;
+        this._leakageMon = _globalLeakWarningThreshold > 0 ? new LeakageMonitor(this._options && this._options.leakWarningThreshold) : undefined;
+        this._perfMon = ((_a = this._options) === null || _a === void 0 ? void 0 : _a._profName) ? new EventProfiling(this._options._profName) : undefined;
+    }
+    /**
+     * For the public to allow to subscribe
+     * to events from this Emitter
+     */
+    get event() {
+        if (!this._event) {
+            this._event = (listener, thisArgs, disposables) => {
+                var _a;
+                if (!this._listeners) {
+                    this._listeners = new linkedList_LinkedList();
+                }
+                const firstListener = this._listeners.isEmpty();
+                if (firstListener && this._options && this._options.onFirstListenerAdd) {
+                    this._options.onFirstListenerAdd(this);
+                }
+                const remove = this._listeners.push(!thisArgs ? listener : [listener, thisArgs]);
+                if (firstListener && this._options && this._options.onFirstListenerDidAdd) {
+                    this._options.onFirstListenerDidAdd(this);
+                }
+                if (this._options && this._options.onListenerDidAdd) {
+                    this._options.onListenerDidAdd(this, listener, thisArgs);
+                }
+                // check and record this emitter for potential leakage
+                const removeMonitor = (_a = this._leakageMon) === null || _a === void 0 ? void 0 : _a.check(this._listeners.size);
+                const result = toDisposable(() => {
+                    if (removeMonitor) {
+                        removeMonitor();
+                    }
+                    if (!this._disposed) {
+                        remove();
+                        if (this._options && this._options.onLastListenerRemove) {
+                            const hasListeners = (this._listeners && !this._listeners.isEmpty());
+                            if (!hasListeners) {
+                                this._options.onLastListenerRemove(this);
+                            }
+                        }
+                    }
+                });
+                if (disposables instanceof DisposableStore) {
+                    disposables.add(result);
+                }
+                else if (Array.isArray(disposables)) {
+                    disposables.push(result);
+                }
+                return result;
+            };
+        }
+        return this._event;
+    }
+    /**
+     * To be kept private to fire an event to
+     * subscribers
+     */
+    fire(event) {
+        var _a, _b;
+        if (this._listeners) {
+            // put all [listener,event]-pairs into delivery queue
+            // then emit all event. an inner/nested event might be
+            // the driver of this
+            if (!this._deliveryQueue) {
+                this._deliveryQueue = new linkedList_LinkedList();
+            }
+            for (let listener of this._listeners) {
+                this._deliveryQueue.push([listener, event]);
+            }
+            // start/stop performance insight collection
+            (_a = this._perfMon) === null || _a === void 0 ? void 0 : _a.start(this._deliveryQueue.size);
+            while (this._deliveryQueue.size > 0) {
+                const [listener, event] = this._deliveryQueue.shift();
+                try {
+                    if (typeof listener === 'function') {
+                        listener.call(undefined, event);
+                    }
+                    else {
+                        listener[0].call(listener[1], event);
+                    }
+                }
+                catch (e) {
+                    onUnexpectedError(e);
+                }
+            }
+            (_b = this._perfMon) === null || _b === void 0 ? void 0 : _b.stop();
+        }
+    }
+    dispose() {
+        var _a, _b, _c, _d, _e;
+        if (!this._disposed) {
+            this._disposed = true;
+            (_a = this._listeners) === null || _a === void 0 ? void 0 : _a.clear();
+            (_b = this._deliveryQueue) === null || _b === void 0 ? void 0 : _b.clear();
+            (_d = (_c = this._options) === null || _c === void 0 ? void 0 : _c.onLastListenerRemove) === null || _d === void 0 ? void 0 : _d.call(_c);
+            (_e = this._leakageMon) === null || _e === void 0 ? void 0 : _e.dispose();
+        }
+    }
+}
+class PauseableEmitter extends (/* unused pure expression or super */ null && (Emitter)) {
+    constructor(options) {
+        super(options);
+        this._isPaused = 0;
+        this._eventQueue = new LinkedList();
+        this._mergeFn = options === null || options === void 0 ? void 0 : options.merge;
+    }
+    pause() {
+        this._isPaused++;
+    }
+    resume() {
+        if (this._isPaused !== 0 && --this._isPaused === 0) {
+            if (this._mergeFn) {
+                // use the merge function to create a single composite
+                // event. make a copy in case firing pauses this emitter
+                const events = Array.from(this._eventQueue);
+                this._eventQueue.clear();
+                super.fire(this._mergeFn(events));
+            }
+            else {
+                // no merging, fire each event individually and test
+                // that this emitter isn't paused halfway through
+                while (!this._isPaused && this._eventQueue.size !== 0) {
+                    super.fire(this._eventQueue.shift());
+                }
+            }
+        }
+    }
+    fire(event) {
+        if (this._listeners) {
+            if (this._isPaused !== 0) {
+                this._eventQueue.push(event);
+            }
+            else {
+                super.fire(event);
+            }
+        }
+    }
+}
+class DebounceEmitter extends (/* unused pure expression or super */ null && (PauseableEmitter)) {
+    constructor(options) {
+        var _a;
+        super(options);
+        this._delay = (_a = options.delay) !== null && _a !== void 0 ? _a : 100;
+    }
+    fire(event) {
+        if (!this._handle) {
+            this.pause();
+            this._handle = setTimeout(() => {
+                this._handle = undefined;
+                this.resume();
+            }, this._delay);
+        }
+        super.fire(event);
+    }
+}
+/**
+ * The EventBufferer is useful in situations in which you want
+ * to delay firing your events during some code.
+ * You can wrap that code and be sure that the event will not
+ * be fired during that wrap.
+ *
+ * ```
+ * const emitter: Emitter;
+ * const delayer = new EventDelayer();
+ * const delayedEvent = delayer.wrapEvent(emitter.event);
+ *
+ * delayedEvent(console.log);
+ *
+ * delayer.bufferEvents(() => {
+ *   emitter.fire(); // event will not be fired yet
+ * });
+ *
+ * // event will only be fired at this point
+ * ```
+ */
+class EventBufferer {
+    constructor() {
+        this.buffers = [];
+    }
+    wrapEvent(event) {
+        return (listener, thisArgs, disposables) => {
+            return event(i => {
+                const buffer = this.buffers[this.buffers.length - 1];
+                if (buffer) {
+                    buffer.push(() => listener.call(thisArgs, i));
+                }
+                else {
+                    listener.call(thisArgs, i);
+                }
+            }, undefined, disposables);
+        };
+    }
+    bufferEvents(fn) {
+        const buffer = [];
+        this.buffers.push(buffer);
+        const r = fn();
+        this.buffers.pop();
+        buffer.forEach(flush => flush());
+        return r;
+    }
+}
+/**
+ * A Relay is an event forwarder which functions as a replugabble event pipe.
+ * Once created, you can connect an input event to it and it will simply forward
+ * events from that input event through its own `event` property. The `input`
+ * can be changed at any point in time.
+ */
+class Relay {
+    constructor() {
+        this.listening = false;
+        this.inputEvent = Event.None;
+        this.inputEventListener = Disposable.None;
+        this.emitter = new Emitter({
+            onFirstListenerDidAdd: () => {
+                this.listening = true;
+                this.inputEventListener = this.inputEvent(this.emitter.fire, this.emitter);
+            },
+            onLastListenerRemove: () => {
+                this.listening = false;
+                this.inputEventListener.dispose();
+            }
+        });
+        this.event = this.emitter.event;
+    }
+    set input(event) {
+        this.inputEvent = event;
+        if (this.listening) {
+            this.inputEventListener.dispose();
+            this.inputEventListener = event(this.emitter.fire, this.emitter);
+        }
+    }
+    dispose() {
+        this.inputEventListener.dispose();
+        this.emitter.dispose();
+    }
+}
+
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/types.js
 /**
  * @returns whether the provided parameter is a JavaScript Array or not.
  */
-function isArray(array) {
+function types_isArray(array) {
     return Array.isArray(array);
 }
 /**
@@ -525,7 +1458,7 @@ function isString(str) {
  * @returns whether the provided parameter is of type `object` but **not**
  *	`null`, an `array`, a `regexp`, nor a `date`.
  */
-function isObject(obj) {
+function types_isObject(obj) {
     // The method can't do a type cast since there are type (like strings) which
     // are subclasses of any put not positvely matched by the function. Hence type
     // narrowing results in wrong results.
@@ -555,9 +1488,15 @@ function isUndefined(obj) {
     return (typeof obj === 'undefined');
 }
 /**
+ * @returns whether the provided parameter is defined.
+ */
+function isDefined(arg) {
+    return !types_isUndefinedOrNull(arg);
+}
+/**
  * @returns whether the provided parameter is undefined or null.
  */
-function isUndefinedOrNull(obj) {
+function types_isUndefinedOrNull(obj) {
     return (isUndefined(obj) || obj === null);
 }
 function assertType(condition, type) {
@@ -569,7 +1508,7 @@ function assertType(condition, type) {
  * Asserts that the argument passed in is neither undefined nor null.
  */
 function assertIsDefined(arg) {
-    if (isUndefinedOrNull(arg)) {
+    if (types_isUndefinedOrNull(arg)) {
         throw new Error('Assertion Failed: argument is undefined or null');
     }
     return arg;
@@ -601,7 +1540,7 @@ function validateConstraint(arg, constraint) {
         catch (_a) {
             // ignore
         }
-        if (!isUndefinedOrNull(arg) && arg.constructor === constraint) {
+        if (!types_isUndefinedOrNull(arg) && arg.constructor === constraint) {
             return;
         }
         if (constraint.length === 1 && constraint.call(undefined, arg) === true) {
@@ -647,569 +1586,8 @@ function createProxyObject(methodNames, invoke) {
 function withNullAsUndefined(x) {
     return x === null ? undefined : x;
 }
-
-;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/worker/simpleWorker.js
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
-
-
-
-const INITIALIZE = '$initialize';
-let webWorkerWarningLogged = false;
-function logOnceWebWorkerWarning(err) {
-    if (!isWeb) {
-        // running tests
-        return;
-    }
-    if (!webWorkerWarningLogged) {
-        webWorkerWarningLogged = true;
-        console.warn('Could not create web worker(s). Falling back to loading web worker code in main thread, which might cause UI freezes. Please see https://github.com/Microsoft/monaco-editor#faq');
-    }
-    console.warn(err.message);
-}
-class SimpleWorkerProtocol {
-    constructor(handler) {
-        this._workerId = -1;
-        this._handler = handler;
-        this._lastSentReq = 0;
-        this._pendingReplies = Object.create(null);
-    }
-    setWorkerId(workerId) {
-        this._workerId = workerId;
-    }
-    sendMessage(method, args) {
-        let req = String(++this._lastSentReq);
-        return new Promise((resolve, reject) => {
-            this._pendingReplies[req] = {
-                resolve: resolve,
-                reject: reject
-            };
-            this._send({
-                vsWorker: this._workerId,
-                req: req,
-                method: method,
-                args: args
-            });
-        });
-    }
-    handleMessage(message) {
-        if (!message || !message.vsWorker) {
-            return;
-        }
-        if (this._workerId !== -1 && message.vsWorker !== this._workerId) {
-            return;
-        }
-        this._handleMessage(message);
-    }
-    _handleMessage(msg) {
-        if (msg.seq) {
-            let replyMessage = msg;
-            if (!this._pendingReplies[replyMessage.seq]) {
-                console.warn('Got reply to unknown seq');
-                return;
-            }
-            let reply = this._pendingReplies[replyMessage.seq];
-            delete this._pendingReplies[replyMessage.seq];
-            if (replyMessage.err) {
-                let err = replyMessage.err;
-                if (replyMessage.err.$isError) {
-                    err = new Error();
-                    err.name = replyMessage.err.name;
-                    err.message = replyMessage.err.message;
-                    err.stack = replyMessage.err.stack;
-                }
-                reply.reject(err);
-                return;
-            }
-            reply.resolve(replyMessage.res);
-            return;
-        }
-        let requestMessage = msg;
-        let req = requestMessage.req;
-        let result = this._handler.handleMessage(requestMessage.method, requestMessage.args);
-        result.then((r) => {
-            this._send({
-                vsWorker: this._workerId,
-                seq: req,
-                res: r,
-                err: undefined
-            });
-        }, (e) => {
-            if (e.detail instanceof Error) {
-                // Loading errors have a detail property that points to the actual error
-                e.detail = transformErrorForSerialization(e.detail);
-            }
-            this._send({
-                vsWorker: this._workerId,
-                seq: req,
-                res: undefined,
-                err: transformErrorForSerialization(e)
-            });
-        });
-    }
-    _send(msg) {
-        let transfer = [];
-        if (msg.req) {
-            const m = msg;
-            for (let i = 0; i < m.args.length; i++) {
-                if (m.args[i] instanceof ArrayBuffer) {
-                    transfer.push(m.args[i]);
-                }
-            }
-        }
-        else {
-            const m = msg;
-            if (m.res instanceof ArrayBuffer) {
-                transfer.push(m.res);
-            }
-        }
-        this._handler.sendMessage(msg, transfer);
-    }
-}
-/**
- * Main thread side
- */
-class SimpleWorkerClient extends (/* unused pure expression or super */ null && (Disposable)) {
-    constructor(workerFactory, moduleId, host) {
-        super();
-        let lazyProxyReject = null;
-        this._worker = this._register(workerFactory.create('vs/base/common/worker/simpleWorker', (msg) => {
-            this._protocol.handleMessage(msg);
-        }, (err) => {
-            // in Firefox, web workers fail lazily :(
-            // we will reject the proxy
-            if (lazyProxyReject) {
-                lazyProxyReject(err);
-            }
-        }));
-        this._protocol = new SimpleWorkerProtocol({
-            sendMessage: (msg, transfer) => {
-                this._worker.postMessage(msg, transfer);
-            },
-            handleMessage: (method, args) => {
-                if (typeof host[method] !== 'function') {
-                    return Promise.reject(new Error('Missing method ' + method + ' on main thread host.'));
-                }
-                try {
-                    return Promise.resolve(host[method].apply(host, args));
-                }
-                catch (e) {
-                    return Promise.reject(e);
-                }
-            }
-        });
-        this._protocol.setWorkerId(this._worker.getId());
-        // Gather loader configuration
-        let loaderConfiguration = null;
-        if (typeof self.require !== 'undefined' && typeof self.require.getConfig === 'function') {
-            // Get the configuration from the Monaco AMD Loader
-            loaderConfiguration = self.require.getConfig();
-        }
-        else if (typeof self.requirejs !== 'undefined') {
-            // Get the configuration from requirejs
-            loaderConfiguration = self.requirejs.s.contexts._.config;
-        }
-        const hostMethods = types.getAllMethodNames(host);
-        // Send initialize message
-        this._onModuleLoaded = this._protocol.sendMessage(INITIALIZE, [
-            this._worker.getId(),
-            JSON.parse(JSON.stringify(loaderConfiguration)),
-            moduleId,
-            hostMethods,
-        ]);
-        // Create proxy to loaded code
-        const proxyMethodRequest = (method, args) => {
-            return this._request(method, args);
-        };
-        this._lazyProxy = new Promise((resolve, reject) => {
-            lazyProxyReject = reject;
-            this._onModuleLoaded.then((availableMethods) => {
-                resolve(types.createProxyObject(availableMethods, proxyMethodRequest));
-            }, (e) => {
-                reject(e);
-                this._onError('Worker failed to load ' + moduleId, e);
-            });
-        });
-    }
-    getProxyObject() {
-        return this._lazyProxy;
-    }
-    _request(method, args) {
-        return new Promise((resolve, reject) => {
-            this._onModuleLoaded.then(() => {
-                this._protocol.sendMessage(method, args).then(resolve, reject);
-            }, reject);
-        });
-    }
-    _onError(message, error) {
-        console.error(message);
-        console.info(error);
-    }
-}
-/**
- * Worker side
- */
-class SimpleWorkerServer {
-    constructor(postMessage, requestHandlerFactory) {
-        this._requestHandlerFactory = requestHandlerFactory;
-        this._requestHandler = null;
-        this._protocol = new SimpleWorkerProtocol({
-            sendMessage: (msg, transfer) => {
-                postMessage(msg, transfer);
-            },
-            handleMessage: (method, args) => this._handleMessage(method, args)
-        });
-    }
-    onmessage(msg) {
-        this._protocol.handleMessage(msg);
-    }
-    _handleMessage(method, args) {
-        if (method === INITIALIZE) {
-            return this.initialize(args[0], args[1], args[2], args[3]);
-        }
-        if (!this._requestHandler || typeof this._requestHandler[method] !== 'function') {
-            return Promise.reject(new Error('Missing requestHandler or method: ' + method));
-        }
-        try {
-            return Promise.resolve(this._requestHandler[method].apply(this._requestHandler, args));
-        }
-        catch (e) {
-            return Promise.reject(e);
-        }
-    }
-    initialize(workerId, loaderConfig, moduleId, hostMethods) {
-        this._protocol.setWorkerId(workerId);
-        const proxyMethodRequest = (method, args) => {
-            return this._protocol.sendMessage(method, args);
-        };
-        const hostProxy = createProxyObject(hostMethods, proxyMethodRequest);
-        if (this._requestHandlerFactory) {
-            // static request handler
-            this._requestHandler = this._requestHandlerFactory(hostProxy);
-            return Promise.resolve(getAllMethodNames(this._requestHandler));
-        }
-        if (loaderConfig) {
-            // Remove 'baseUrl', handling it is beyond scope for now
-            if (typeof loaderConfig.baseUrl !== 'undefined') {
-                delete loaderConfig['baseUrl'];
-            }
-            if (typeof loaderConfig.paths !== 'undefined') {
-                if (typeof loaderConfig.paths.vs !== 'undefined') {
-                    delete loaderConfig.paths['vs'];
-                }
-            }
-            // Since this is in a web worker, enable catching errors
-            loaderConfig.catchError = true;
-            self.require.config(loaderConfig);
-        }
-        return new Promise((resolve, reject) => {
-            // Use the global require to be sure to get the global config
-            self.require([moduleId], (module) => {
-                this._requestHandler = module.create(hostProxy);
-                if (!this._requestHandler) {
-                    reject(new Error(`No RequestHandler!`));
-                    return;
-                }
-                resolve(getAllMethodNames(this._requestHandler));
-            }, reject);
-        });
-    }
-}
-/**
- * Called on the worker side
- */
-function create(postMessage) {
-    return new SimpleWorkerServer(postMessage, null);
-}
-
-;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/arrays.js
-/**
- * Returns the last element of an array.
- * @param array The array.
- * @param n Which element from the end (default is zero).
- */
-function tail(array, n = 0) {
-    return array[array.length - (1 + n)];
-}
-function tail2(arr) {
-    if (arr.length === 0) {
-        throw new Error('Invalid tail call');
-    }
-    return [arr.slice(0, arr.length - 1), arr[arr.length - 1]];
-}
-function equals(one, other, itemEquals = (a, b) => a === b) {
-    if (one === other) {
-        return true;
-    }
-    if (!one || !other) {
-        return false;
-    }
-    if (one.length !== other.length) {
-        return false;
-    }
-    for (let i = 0, len = one.length; i < len; i++) {
-        if (!itemEquals(one[i], other[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-function binarySearch(array, key, comparator) {
-    let low = 0, high = array.length - 1;
-    while (low <= high) {
-        const mid = ((low + high) / 2) | 0;
-        const comp = comparator(array[mid], key);
-        if (comp < 0) {
-            low = mid + 1;
-        }
-        else if (comp > 0) {
-            high = mid - 1;
-        }
-        else {
-            return mid;
-        }
-    }
-    return -(low + 1);
-}
-/**
- * Takes a sorted array and a function p. The array is sorted in such a way that all elements where p(x) is false
- * are located before all elements where p(x) is true.
- * @returns the least x for which p(x) is true or array.length if no element fullfills the given function.
- */
-function findFirstInSorted(array, p) {
-    let low = 0, high = array.length;
-    if (high === 0) {
-        return 0; // no children
-    }
-    while (low < high) {
-        const mid = Math.floor((low + high) / 2);
-        if (p(array[mid])) {
-            high = mid;
-        }
-        else {
-            low = mid + 1;
-        }
-    }
-    return low;
-}
-/**
- * Like `Array#sort` but always stable. Usually runs a little slower `than Array#sort`
- * so only use this when actually needing stable sort.
- */
-function mergeSort(data, compare) {
-    _sort(data, compare, 0, data.length - 1, []);
-    return data;
-}
-function _merge(a, compare, lo, mid, hi, aux) {
-    let leftIdx = lo, rightIdx = mid + 1;
-    for (let i = lo; i <= hi; i++) {
-        aux[i] = a[i];
-    }
-    for (let i = lo; i <= hi; i++) {
-        if (leftIdx > mid) {
-            // left side consumed
-            a[i] = aux[rightIdx++];
-        }
-        else if (rightIdx > hi) {
-            // right side consumed
-            a[i] = aux[leftIdx++];
-        }
-        else if (compare(aux[rightIdx], aux[leftIdx]) < 0) {
-            // right element is less -> comes first
-            a[i] = aux[rightIdx++];
-        }
-        else {
-            // left element comes first (less or equal)
-            a[i] = aux[leftIdx++];
-        }
-    }
-}
-function _sort(a, compare, lo, hi, aux) {
-    if (hi <= lo) {
-        return;
-    }
-    const mid = lo + ((hi - lo) / 2) | 0;
-    _sort(a, compare, lo, mid, aux);
-    _sort(a, compare, mid + 1, hi, aux);
-    if (compare(a[mid], a[mid + 1]) <= 0) {
-        // left and right are sorted and if the last-left element is less
-        // or equals than the first-right element there is nothing else
-        // to do
-        return;
-    }
-    _merge(a, compare, lo, mid, hi, aux);
-}
-function groupBy(data, compare) {
-    const result = [];
-    let currentGroup = undefined;
-    for (const element of mergeSort(data.slice(0), compare)) {
-        if (!currentGroup || compare(currentGroup[0], element) !== 0) {
-            currentGroup = [element];
-            result.push(currentGroup);
-        }
-        else {
-            currentGroup.push(element);
-        }
-    }
-    return result;
-}
-/**
- * @returns New array with all falsy values removed. The original array IS NOT modified.
- */
-function coalesce(array) {
-    return array.filter(e => !!e);
-}
-/**
- * @returns false if the provided object is an array and not empty.
- */
-function isFalsyOrEmpty(obj) {
-    return !Array.isArray(obj) || obj.length === 0;
-}
-function isNonEmptyArray(obj) {
-    return Array.isArray(obj) && obj.length > 0;
-}
-/**
- * Removes duplicates from the given array. The optional keyFn allows to specify
- * how elements are checked for equalness by returning a unique string for each.
- */
-function distinct(array, keyFn) {
-    if (!keyFn) {
-        return array.filter((element, position) => {
-            return array.indexOf(element) === position;
-        });
-    }
-    const seen = Object.create(null);
-    return array.filter((elem) => {
-        const key = keyFn(elem);
-        if (seen[key]) {
-            return false;
-        }
-        seen[key] = true;
-        return true;
-    });
-}
-function distinctES6(array) {
-    const seen = new Set();
-    return array.filter(element => {
-        if (seen.has(element)) {
-            return false;
-        }
-        seen.add(element);
-        return true;
-    });
-}
-/**
- * @deprecated ES6: use `Array.findIndex`
- */
-function firstIndex(array, fn) {
-    for (let i = 0; i < array.length; i++) {
-        const element = array[i];
-        if (fn(element)) {
-            return i;
-        }
-    }
-    return -1;
-}
-function first(array, fn, notFoundValue = undefined) {
-    const index = firstIndex(array, fn);
-    return index < 0 ? notFoundValue : array[index];
-}
-function firstOrDefault(array, notFoundValue) {
-    return array.length > 0 ? array[0] : notFoundValue;
-}
-function flatten(arr) {
-    return [].concat(...arr);
-}
-function range(arg, to) {
-    let from = typeof to === 'number' ? arg : 0;
-    if (typeof to === 'number') {
-        from = arg;
-    }
-    else {
-        from = 0;
-        to = arg;
-    }
-    const result = [];
-    if (from <= to) {
-        for (let i = from; i < to; i++) {
-            result.push(i);
-        }
-    }
-    else {
-        for (let i = from; i > to; i--) {
-            result.push(i);
-        }
-    }
-    return result;
-}
-/**
- * Insert `insertArr` inside `target` at `insertIndex`.
- * Please don't touch unless you understand https://jsperf.com/inserting-an-array-within-an-array
- */
-function arrayInsert(target, insertIndex, insertArr) {
-    const before = target.slice(0, insertIndex);
-    const after = target.slice(insertIndex);
-    return before.concat(insertArr, after);
-}
-/**
- * Pushes an element to the start of the array, if found.
- */
-function pushToStart(arr, value) {
-    const index = arr.indexOf(value);
-    if (index > -1) {
-        arr.splice(index, 1);
-        arr.unshift(value);
-    }
-}
-/**
- * Pushes an element to the end of the array, if found.
- */
-function pushToEnd(arr, value) {
-    const index = arr.indexOf(value);
-    if (index > -1) {
-        arr.splice(index, 1);
-        arr.push(value);
-    }
-}
-function asArray(x) {
-    return Array.isArray(x) ? x : [x];
-}
-
-;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/diff/diffChange.js
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-/**
- * Represents information about a specific difference between two sequences.
- */
-class DiffChange {
-    /**
-     * Constructs a new DiffChange with the given sequence information
-     * and content.
-     */
-    constructor(originalStart, originalLength, modifiedStart, modifiedLength) {
-        //Debug.Assert(originalLength > 0 || modifiedLength > 0, "originalLength and modifiedLength cannot both be <= 0");
-        this.originalStart = originalStart;
-        this.originalLength = originalLength;
-        this.modifiedStart = modifiedStart;
-        this.modifiedLength = modifiedLength;
-    }
-    /**
-     * The end point (exclusive) of the change in the original sequence.
-     */
-    getOriginalEnd() {
-        return this.originalStart + this.originalLength;
-    }
-    /**
-     * The end point (exclusive) of the change in the modified sequence.
-     */
-    getModifiedEnd() {
-        return this.modifiedStart + this.modifiedLength;
-    }
+function assertNever(value, message = 'Unreachable') {
+    throw new Error(message);
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/strings.js
@@ -1217,22 +1595,12 @@ class DiffChange {
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
 function isFalsyOrWhitespace(str) {
     if (!str || typeof str !== 'string') {
         return true;
     }
     return str.trim().length === 0;
-}
-/**
- * @deprecated ES6: use `String.padStart`
- */
-function pad(n, l, char = '0') {
-    const str = '' + n;
-    const r = [str];
-    for (let i = str.length; i < l; i++) {
-        r.push(char);
-    }
-    return r.reverse().join('');
 }
 const _formatRegexp = /{(\d+)}/g;
 /**
@@ -1332,38 +1700,6 @@ function convertSimple2RegExpPattern(pattern) {
 function stripWildcards(pattern) {
     return pattern.replace(/\*/g, '');
 }
-/**
- * @deprecated ES6: use `String.startsWith`
- */
-function startsWith(haystack, needle) {
-    if (haystack.length < needle.length) {
-        return false;
-    }
-    if (haystack === needle) {
-        return true;
-    }
-    for (let i = 0; i < needle.length; i++) {
-        if (haystack[i] !== needle[i]) {
-            return false;
-        }
-    }
-    return true;
-}
-/**
- * @deprecated ES6: use `String.endsWith`
- */
-function endsWith(haystack, needle) {
-    const diff = haystack.length - needle.length;
-    if (diff > 0) {
-        return haystack.indexOf(needle, diff) === diff;
-    }
-    else if (diff === 0) {
-        return haystack === needle;
-    }
-    else {
-        return false;
-    }
-}
 function createRegExp(searchString, isRegex, options = {}) {
     if (!searchString) {
         throw new Error('Cannot create regex from empty string');
@@ -1410,6 +1746,9 @@ function regExpFlags(regexp) {
         + (regexp.ignoreCase ? 'i' : '')
         + (regexp.multiline ? 'm' : '')
         + (regexp /* standalone editor compilation */.unicode ? 'u' : '');
+}
+function splitLines(str) {
+    return str.split(/\r\n|\r|\n/);
 }
 /**
  * Returns first index of the string that is not whitespace.
@@ -1493,20 +1832,24 @@ function compareSubstringIgnoreCase(a, b, aStart = 0, aEnd = a.length, bStart = 
             // equal
             continue;
         }
-        const diff = codeA - codeB;
-        if (diff === 32 && isUpperAsciiLetter(codeB)) { //codeB =[65-90] && codeA =[97-122]
-            continue;
-        }
-        else if (diff === -32 && isUpperAsciiLetter(codeA)) { //codeB =[97-122] && codeA =[65-90]
-            continue;
-        }
-        if (isLowerAsciiLetter(codeA) && isLowerAsciiLetter(codeB)) {
-            //
-            return diff;
-        }
-        else {
+        if (codeA >= 128 || codeB >= 128) {
+            // not ASCII letters -> fallback to lower-casing strings
             return compareSubstring(a.toLowerCase(), b.toLowerCase(), aStart, aEnd, bStart, bEnd);
         }
+        // mapper lower-case ascii letter onto upper-case varinats
+        // [97-122] (lower ascii) --> [65-90] (upper ascii)
+        if (isLowerAsciiLetter(codeA)) {
+            codeA -= 32;
+        }
+        if (isLowerAsciiLetter(codeB)) {
+            codeB -= 32;
+        }
+        // compare both code points
+        const diff = codeA - codeB;
+        if (diff === 0) {
+            continue;
+        }
+        return diff;
     }
     const aLen = aEnd - aStart;
     const bLen = bEnd - bStart;
@@ -1524,41 +1867,15 @@ function isLowerAsciiLetter(code) {
 function isUpperAsciiLetter(code) {
     return code >= 65 /* A */ && code <= 90 /* Z */;
 }
-function isAsciiLetter(code) {
-    return isLowerAsciiLetter(code) || isUpperAsciiLetter(code);
-}
 function equalsIgnoreCase(a, b) {
-    return a.length === b.length && doEqualsIgnoreCase(a, b);
-}
-function doEqualsIgnoreCase(a, b, stopAt = a.length) {
-    for (let i = 0; i < stopAt; i++) {
-        const codeA = a.charCodeAt(i);
-        const codeB = b.charCodeAt(i);
-        if (codeA === codeB) {
-            continue;
-        }
-        // a-z A-Z
-        if (isAsciiLetter(codeA) && isAsciiLetter(codeB)) {
-            const diff = Math.abs(codeA - codeB);
-            if (diff !== 0 && diff !== 32) {
-                return false;
-            }
-        }
-        // Any other charcode
-        else {
-            if (String.fromCharCode(codeA).toLowerCase() !== String.fromCharCode(codeB).toLowerCase()) {
-                return false;
-            }
-        }
-    }
-    return true;
+    return a.length === b.length && compareSubstringIgnoreCase(a, b) === 0;
 }
 function startsWithIgnoreCase(str, candidate) {
     const candidateLength = candidate.length;
     if (candidate.length > str.length) {
         return false;
     }
-    return doEqualsIgnoreCase(str, candidate, candidateLength);
+    return compareSubstringIgnoreCase(str, candidate, 0, candidateLength) === 0;
 }
 /**
  * @returns the length of the common prefix of the two strings.
@@ -1666,62 +1983,9 @@ function prevCharLength(str, offset) {
     return (initialOffset - offset);
 }
 /**
- * A manual decoding of a UTF8 string.
- * Use only in environments which do not offer native conversion methods!
+ * Generated using https://github.com/alexdima/unicode-utils/blob/main/rtl-test.js
  */
-function decodeUTF8(buffer) {
-    // https://en.wikipedia.org/wiki/UTF-8
-    const len = buffer.byteLength;
-    const result = [];
-    let offset = 0;
-    while (offset < len) {
-        const v0 = buffer[offset];
-        let codePoint;
-        if (v0 >= 0b11110000 && offset + 3 < len) {
-            // 4 bytes
-            codePoint = ((((buffer[offset++] & 0b00000111) << 18) >>> 0)
-                | (((buffer[offset++] & 0b00111111) << 12) >>> 0)
-                | (((buffer[offset++] & 0b00111111) << 6) >>> 0)
-                | (((buffer[offset++] & 0b00111111) << 0) >>> 0));
-        }
-        else if (v0 >= 0b11100000 && offset + 2 < len) {
-            // 3 bytes
-            codePoint = ((((buffer[offset++] & 0b00001111) << 12) >>> 0)
-                | (((buffer[offset++] & 0b00111111) << 6) >>> 0)
-                | (((buffer[offset++] & 0b00111111) << 0) >>> 0));
-        }
-        else if (v0 >= 0b11000000 && offset + 1 < len) {
-            // 2 bytes
-            codePoint = ((((buffer[offset++] & 0b00011111) << 6) >>> 0)
-                | (((buffer[offset++] & 0b00111111) << 0) >>> 0));
-        }
-        else {
-            // 1 byte
-            codePoint = buffer[offset++];
-        }
-        if ((codePoint >= 0 && codePoint <= 0xD7FF) || (codePoint >= 0xE000 && codePoint <= 0xFFFF)) {
-            // Basic Multilingual Plane
-            result.push(String.fromCharCode(codePoint));
-        }
-        else if (codePoint >= 0x010000 && codePoint <= 0x10FFFF) {
-            // Supplementary Planes
-            const uPrime = codePoint - 0x10000;
-            const w1 = 0xD800 + ((uPrime & 0b11111111110000000000) >>> 10);
-            const w2 = 0xDC00 + ((uPrime & 0b00000000001111111111) >>> 0);
-            result.push(String.fromCharCode(w1));
-            result.push(String.fromCharCode(w2));
-        }
-        else {
-            // illegal code point
-            result.push(String.fromCharCode(0xFFFD));
-        }
-    }
-    return result.join('');
-}
-/**
- * Generated using https://github.com/alexandrudima/unicode-utils/blob/master/generate-rtl-test.js
- */
-const CONTAINS_RTL = /(?:[\u05BE\u05C0\u05C3\u05C6\u05D0-\u05F4\u0608\u060B\u060D\u061B-\u064A\u066D-\u066F\u0671-\u06D5\u06E5\u06E6\u06EE\u06EF\u06FA-\u0710\u0712-\u072F\u074D-\u07A5\u07B1-\u07EA\u07F4\u07F5\u07FA-\u0815\u081A\u0824\u0828\u0830-\u0858\u085E-\u08BD\u200F\uFB1D\uFB1F-\uFB28\uFB2A-\uFD3D\uFD50-\uFDFC\uFE70-\uFEFC]|\uD802[\uDC00-\uDD1B\uDD20-\uDE00\uDE10-\uDE33\uDE40-\uDEE4\uDEEB-\uDF35\uDF40-\uDFFF]|\uD803[\uDC00-\uDCFF]|\uD83A[\uDC00-\uDCCF\uDD00-\uDD43\uDD50-\uDFFF]|\uD83B[\uDC00-\uDEBB])/;
+const CONTAINS_RTL = /(?:[\u05BE\u05C0\u05C3\u05C6\u05D0-\u05F4\u0608\u060B\u060D\u061B-\u064A\u066D-\u066F\u0671-\u06D5\u06E5\u06E6\u06EE\u06EF\u06FA-\u0710\u0712-\u072F\u074D-\u07A5\u07B1-\u07EA\u07F4\u07F5\u07FA\u07FE-\u0815\u081A\u0824\u0828\u0830-\u0858\u085E-\u088E\u08A0-\u08C9\u200F\uFB1D\uFB1F-\uFB28\uFB2A-\uFD3D\uFD50-\uFDC7\uFDF0-\uFDFC\uFE70-\uFEFC]|\uD802[\uDC00-\uDD1B\uDD20-\uDE00\uDE10-\uDE35\uDE40-\uDEE4\uDEEB-\uDF35\uDF40-\uDFFF]|\uD803[\uDC00-\uDD23\uDE80-\uDEA9\uDEAD-\uDF45\uDF51-\uDF81\uDF86-\uDFF6]|\uD83A[\uDC00-\uDCCF\uDD00-\uDD43\uDD4B-\uDFFF]|\uD83B[\uDC00-\uDEBB])/;
 /**
  * Returns true if `str` contains any Unicode character that is classified as "R" or "AL".
  */
@@ -1729,9 +1993,9 @@ function containsRTL(str) {
     return CONTAINS_RTL.test(str);
 }
 /**
- * Generated using https://github.com/alexandrudima/unicode-utils/blob/master/generate-emoji-test.js
+ * Generated using https://github.com/alexdima/unicode-utils/blob/main/emoji-test.js
  */
-const CONTAINS_EMOJI = /(?:[\u231A\u231B\u23F0\u23F3\u2600-\u27BF\u2B50\u2B55]|\uD83C[\uDDE6-\uDDFF\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F\uDE80-\uDEFC\uDFE0-\uDFEB]|\uD83E[\uDD00-\uDDFF\uDE70-\uDE73\uDE78-\uDE82\uDE90-\uDE95])/;
+const CONTAINS_EMOJI = /(?:[\u231A\u231B\u23F0\u23F3\u2600-\u27BF\u2B50\u2B55]|\uD83C[\uDDE6-\uDDFF\uDF00-\uDFFF]|\uD83D[\uDC00-\uDE4F\uDE80-\uDEFC\uDFE0-\uDFF0]|\uD83E[\uDD00-\uDDFF\uDE70-\uDEF6])/;
 function containsEmoji(str) {
     return CONTAINS_EMOJI.test(str);
 }
@@ -1760,55 +2024,56 @@ function containsFullWidthCharacter(str) {
 function isFullWidthCharacter(charCode) {
     // Do a cheap trick to better support wrapping of wide characters, treat them as 2 columns
     // http://jrgraphix.net/research/unicode_blocks.php
-    //          2E80 — 2EFF   CJK Radicals Supplement
-    //          2F00 — 2FDF   Kangxi Radicals
-    //          2FF0 — 2FFF   Ideographic Description Characters
-    //          3000 — 303F   CJK Symbols and Punctuation
-    //          3040 — 309F   Hiragana
-    //          30A0 — 30FF   Katakana
-    //          3100 — 312F   Bopomofo
-    //          3130 — 318F   Hangul Compatibility Jamo
-    //          3190 — 319F   Kanbun
-    //          31A0 — 31BF   Bopomofo Extended
-    //          31F0 — 31FF   Katakana Phonetic Extensions
-    //          3200 — 32FF   Enclosed CJK Letters and Months
-    //          3300 — 33FF   CJK Compatibility
-    //          3400 — 4DBF   CJK Unified Ideographs Extension A
-    //          4DC0 — 4DFF   Yijing Hexagram Symbols
-    //          4E00 — 9FFF   CJK Unified Ideographs
-    //          A000 — A48F   Yi Syllables
-    //          A490 — A4CF   Yi Radicals
-    //          AC00 — D7AF   Hangul Syllables
-    // [IGNORE] D800 — DB7F   High Surrogates
-    // [IGNORE] DB80 — DBFF   High Private Use Surrogates
-    // [IGNORE] DC00 — DFFF   Low Surrogates
-    // [IGNORE] E000 — F8FF   Private Use Area
-    //          F900 — FAFF   CJK Compatibility Ideographs
-    // [IGNORE] FB00 — FB4F   Alphabetic Presentation Forms
-    // [IGNORE] FB50 — FDFF   Arabic Presentation Forms-A
-    // [IGNORE] FE00 — FE0F   Variation Selectors
-    // [IGNORE] FE20 — FE2F   Combining Half Marks
-    // [IGNORE] FE30 — FE4F   CJK Compatibility Forms
-    // [IGNORE] FE50 — FE6F   Small Form Variants
-    // [IGNORE] FE70 — FEFF   Arabic Presentation Forms-B
-    //          FF00 — FFEF   Halfwidth and Fullwidth Forms
+    //          2E80 - 2EFF   CJK Radicals Supplement
+    //          2F00 - 2FDF   Kangxi Radicals
+    //          2FF0 - 2FFF   Ideographic Description Characters
+    //          3000 - 303F   CJK Symbols and Punctuation
+    //          3040 - 309F   Hiragana
+    //          30A0 - 30FF   Katakana
+    //          3100 - 312F   Bopomofo
+    //          3130 - 318F   Hangul Compatibility Jamo
+    //          3190 - 319F   Kanbun
+    //          31A0 - 31BF   Bopomofo Extended
+    //          31F0 - 31FF   Katakana Phonetic Extensions
+    //          3200 - 32FF   Enclosed CJK Letters and Months
+    //          3300 - 33FF   CJK Compatibility
+    //          3400 - 4DBF   CJK Unified Ideographs Extension A
+    //          4DC0 - 4DFF   Yijing Hexagram Symbols
+    //          4E00 - 9FFF   CJK Unified Ideographs
+    //          A000 - A48F   Yi Syllables
+    //          A490 - A4CF   Yi Radicals
+    //          AC00 - D7AF   Hangul Syllables
+    // [IGNORE] D800 - DB7F   High Surrogates
+    // [IGNORE] DB80 - DBFF   High Private Use Surrogates
+    // [IGNORE] DC00 - DFFF   Low Surrogates
+    // [IGNORE] E000 - F8FF   Private Use Area
+    //          F900 - FAFF   CJK Compatibility Ideographs
+    // [IGNORE] FB00 - FB4F   Alphabetic Presentation Forms
+    // [IGNORE] FB50 - FDFF   Arabic Presentation Forms-A
+    // [IGNORE] FE00 - FE0F   Variation Selectors
+    // [IGNORE] FE20 - FE2F   Combining Half Marks
+    // [IGNORE] FE30 - FE4F   CJK Compatibility Forms
+    // [IGNORE] FE50 - FE6F   Small Form Variants
+    // [IGNORE] FE70 - FEFF   Arabic Presentation Forms-B
+    //          FF00 - FFEF   Halfwidth and Fullwidth Forms
     //               [https://en.wikipedia.org/wiki/Halfwidth_and_fullwidth_forms]
     //               of which FF01 - FF5E fullwidth ASCII of 21 to 7E
     // [IGNORE]    and FF65 - FFDC halfwidth of Katakana and Hangul
-    // [IGNORE] FFF0 — FFFF   Specials
-    charCode = +charCode; // @perf
+    // [IGNORE] FFF0 - FFFF   Specials
     return ((charCode >= 0x2E80 && charCode <= 0xD7AF)
         || (charCode >= 0xF900 && charCode <= 0xFAFF)
         || (charCode >= 0xFF01 && charCode <= 0xFF5E));
 }
 /**
  * A fast function (therefore imprecise) to check if code points are emojis.
- * Generated using https://github.com/alexandrudima/unicode-utils/blob/master/generate-emoji-test.js
+ * Generated using https://github.com/alexdima/unicode-utils/blob/main/emoji-test.js
  */
 function isEmojiImprecise(x) {
-    return ((x >= 0x1F1E6 && x <= 0x1F1FF) || (x >= 9728 && x <= 10175) || (x >= 127744 && x <= 128591)
-        || (x >= 128640 && x <= 128764) || (x >= 128992 && x <= 129003) || (x >= 129280 && x <= 129535)
-        || (x >= 129648 && x <= 129651) || (x >= 129656 && x <= 129666) || (x >= 129680 && x <= 129685));
+    return ((x >= 0x1F1E6 && x <= 0x1F1FF) || (x === 8986) || (x === 8987) || (x === 9200)
+        || (x === 9203) || (x >= 9728 && x <= 10175) || (x === 11088) || (x === 11093)
+        || (x >= 127744 && x <= 128591) || (x >= 128640 && x <= 128764)
+        || (x >= 128992 && x <= 129008) || (x >= 129280 && x <= 129535)
+        || (x >= 129648 && x <= 129782));
 }
 // -- UTF-8 BOM
 const UTF8_BOM_CHARACTER = String.fromCharCode(65279 /* UTF8_BOM */);
@@ -1958,10 +2223,605 @@ class GraphemeBreakTree {
 }
 GraphemeBreakTree._INSTANCE = null;
 function getGraphemeBreakRawData() {
-    // generated using https://github.com/alexandrudima/unicode-utils/blob/master/generate-grapheme-break.js
-    return JSON.parse('[0,0,0,51592,51592,11,44424,44424,11,72251,72254,5,7150,7150,7,48008,48008,11,55176,55176,11,128420,128420,14,3276,3277,5,9979,9980,14,46216,46216,11,49800,49800,11,53384,53384,11,70726,70726,5,122915,122916,5,129320,129327,14,2558,2558,5,5906,5908,5,9762,9763,14,43360,43388,8,45320,45320,11,47112,47112,11,48904,48904,11,50696,50696,11,52488,52488,11,54280,54280,11,70082,70083,1,71350,71350,7,73111,73111,5,127892,127893,14,128726,128727,14,129473,129474,14,2027,2035,5,2901,2902,5,3784,3789,5,6754,6754,5,8418,8420,5,9877,9877,14,11088,11088,14,44008,44008,5,44872,44872,11,45768,45768,11,46664,46664,11,47560,47560,11,48456,48456,11,49352,49352,11,50248,50248,11,51144,51144,11,52040,52040,11,52936,52936,11,53832,53832,11,54728,54728,11,69811,69814,5,70459,70460,5,71096,71099,7,71998,71998,5,72874,72880,5,119149,119149,7,127374,127374,14,128335,128335,14,128482,128482,14,128765,128767,14,129399,129400,14,129680,129685,14,1476,1477,5,2377,2380,7,2759,2760,5,3137,3140,7,3458,3459,7,4153,4154,5,6432,6434,5,6978,6978,5,7675,7679,5,9723,9726,14,9823,9823,14,9919,9923,14,10035,10036,14,42736,42737,5,43596,43596,5,44200,44200,11,44648,44648,11,45096,45096,11,45544,45544,11,45992,45992,11,46440,46440,11,46888,46888,11,47336,47336,11,47784,47784,11,48232,48232,11,48680,48680,11,49128,49128,11,49576,49576,11,50024,50024,11,50472,50472,11,50920,50920,11,51368,51368,11,51816,51816,11,52264,52264,11,52712,52712,11,53160,53160,11,53608,53608,11,54056,54056,11,54504,54504,11,54952,54952,11,68108,68111,5,69933,69940,5,70197,70197,7,70498,70499,7,70845,70845,5,71229,71229,5,71727,71735,5,72154,72155,5,72344,72345,5,73023,73029,5,94095,94098,5,121403,121452,5,126981,127182,14,127538,127546,14,127990,127990,14,128391,128391,14,128445,128449,14,128500,128505,14,128752,128752,14,129160,129167,14,129356,129356,14,129432,129442,14,129648,129651,14,129751,131069,14,173,173,4,1757,1757,1,2274,2274,1,2494,2494,5,2641,2641,5,2876,2876,5,3014,3016,7,3262,3262,7,3393,3396,5,3570,3571,7,3968,3972,5,4228,4228,7,6086,6086,5,6679,6680,5,6912,6915,5,7080,7081,5,7380,7392,5,8252,8252,14,9096,9096,14,9748,9749,14,9784,9786,14,9833,9850,14,9890,9894,14,9938,9938,14,9999,9999,14,10085,10087,14,12349,12349,14,43136,43137,7,43454,43456,7,43755,43755,7,44088,44088,11,44312,44312,11,44536,44536,11,44760,44760,11,44984,44984,11,45208,45208,11,45432,45432,11,45656,45656,11,45880,45880,11,46104,46104,11,46328,46328,11,46552,46552,11,46776,46776,11,47000,47000,11,47224,47224,11,47448,47448,11,47672,47672,11,47896,47896,11,48120,48120,11,48344,48344,11,48568,48568,11,48792,48792,11,49016,49016,11,49240,49240,11,49464,49464,11,49688,49688,11,49912,49912,11,50136,50136,11,50360,50360,11,50584,50584,11,50808,50808,11,51032,51032,11,51256,51256,11,51480,51480,11,51704,51704,11,51928,51928,11,52152,52152,11,52376,52376,11,52600,52600,11,52824,52824,11,53048,53048,11,53272,53272,11,53496,53496,11,53720,53720,11,53944,53944,11,54168,54168,11,54392,54392,11,54616,54616,11,54840,54840,11,55064,55064,11,65438,65439,5,69633,69633,5,69837,69837,1,70018,70018,7,70188,70190,7,70368,70370,7,70465,70468,7,70712,70719,5,70835,70840,5,70850,70851,5,71132,71133,5,71340,71340,7,71458,71461,5,71985,71989,7,72002,72002,7,72193,72202,5,72281,72283,5,72766,72766,7,72885,72886,5,73104,73105,5,92912,92916,5,113824,113827,4,119173,119179,5,121505,121519,5,125136,125142,5,127279,127279,14,127489,127490,14,127570,127743,14,127900,127901,14,128254,128254,14,128369,128370,14,128400,128400,14,128425,128432,14,128468,128475,14,128489,128494,14,128715,128720,14,128745,128745,14,128759,128760,14,129004,129023,14,129296,129304,14,129340,129342,14,129388,129392,14,129404,129407,14,129454,129455,14,129485,129487,14,129659,129663,14,129719,129727,14,917536,917631,5,13,13,2,1160,1161,5,1564,1564,4,1807,1807,1,2085,2087,5,2363,2363,7,2402,2403,5,2507,2508,7,2622,2624,7,2691,2691,7,2786,2787,5,2881,2884,5,3006,3006,5,3072,3072,5,3170,3171,5,3267,3268,7,3330,3331,7,3406,3406,1,3538,3540,5,3655,3662,5,3897,3897,5,4038,4038,5,4184,4185,5,4352,4447,8,6068,6069,5,6155,6157,5,6448,6449,7,6742,6742,5,6783,6783,5,6966,6970,5,7042,7042,7,7143,7143,7,7212,7219,5,7412,7412,5,8206,8207,4,8294,8303,4,8596,8601,14,9410,9410,14,9742,9742,14,9757,9757,14,9770,9770,14,9794,9794,14,9828,9828,14,9855,9855,14,9882,9882,14,9900,9903,14,9929,9933,14,9963,9967,14,9987,9988,14,10006,10006,14,10062,10062,14,10175,10175,14,11744,11775,5,42607,42607,5,43043,43044,7,43263,43263,5,43444,43445,7,43569,43570,5,43698,43700,5,43766,43766,5,44032,44032,11,44144,44144,11,44256,44256,11,44368,44368,11,44480,44480,11,44592,44592,11,44704,44704,11,44816,44816,11,44928,44928,11,45040,45040,11,45152,45152,11,45264,45264,11,45376,45376,11,45488,45488,11,45600,45600,11,45712,45712,11,45824,45824,11,45936,45936,11,46048,46048,11,46160,46160,11,46272,46272,11,46384,46384,11,46496,46496,11,46608,46608,11,46720,46720,11,46832,46832,11,46944,46944,11,47056,47056,11,47168,47168,11,47280,47280,11,47392,47392,11,47504,47504,11,47616,47616,11,47728,47728,11,47840,47840,11,47952,47952,11,48064,48064,11,48176,48176,11,48288,48288,11,48400,48400,11,48512,48512,11,48624,48624,11,48736,48736,11,48848,48848,11,48960,48960,11,49072,49072,11,49184,49184,11,49296,49296,11,49408,49408,11,49520,49520,11,49632,49632,11,49744,49744,11,49856,49856,11,49968,49968,11,50080,50080,11,50192,50192,11,50304,50304,11,50416,50416,11,50528,50528,11,50640,50640,11,50752,50752,11,50864,50864,11,50976,50976,11,51088,51088,11,51200,51200,11,51312,51312,11,51424,51424,11,51536,51536,11,51648,51648,11,51760,51760,11,51872,51872,11,51984,51984,11,52096,52096,11,52208,52208,11,52320,52320,11,52432,52432,11,52544,52544,11,52656,52656,11,52768,52768,11,52880,52880,11,52992,52992,11,53104,53104,11,53216,53216,11,53328,53328,11,53440,53440,11,53552,53552,11,53664,53664,11,53776,53776,11,53888,53888,11,54000,54000,11,54112,54112,11,54224,54224,11,54336,54336,11,54448,54448,11,54560,54560,11,54672,54672,11,54784,54784,11,54896,54896,11,55008,55008,11,55120,55120,11,64286,64286,5,66272,66272,5,68900,68903,5,69762,69762,7,69817,69818,5,69927,69931,5,70003,70003,5,70070,70078,5,70094,70094,7,70194,70195,7,70206,70206,5,70400,70401,5,70463,70463,7,70475,70477,7,70512,70516,5,70722,70724,5,70832,70832,5,70842,70842,5,70847,70848,5,71088,71089,7,71102,71102,7,71219,71226,5,71231,71232,5,71342,71343,7,71453,71455,5,71463,71467,5,71737,71738,5,71995,71996,5,72000,72000,7,72145,72147,7,72160,72160,5,72249,72249,7,72273,72278,5,72330,72342,5,72752,72758,5,72850,72871,5,72882,72883,5,73018,73018,5,73031,73031,5,73109,73109,5,73461,73462,7,94031,94031,5,94192,94193,7,119142,119142,7,119155,119162,4,119362,119364,5,121476,121476,5,122888,122904,5,123184,123190,5,126976,126979,14,127184,127231,14,127344,127345,14,127405,127461,14,127514,127514,14,127561,127567,14,127778,127779,14,127896,127896,14,127985,127986,14,127995,127999,5,128326,128328,14,128360,128366,14,128378,128378,14,128394,128397,14,128405,128406,14,128422,128423,14,128435,128443,14,128453,128464,14,128479,128480,14,128484,128487,14,128496,128498,14,128640,128709,14,128723,128724,14,128736,128741,14,128747,128748,14,128755,128755,14,128762,128762,14,128981,128991,14,129096,129103,14,129292,129292,14,129311,129311,14,129329,129330,14,129344,129349,14,129360,129374,14,129394,129394,14,129402,129402,14,129413,129425,14,129445,129450,14,129466,129471,14,129483,129483,14,129511,129535,14,129653,129655,14,129667,129670,14,129705,129711,14,129731,129743,14,917505,917505,4,917760,917999,5,10,10,3,127,159,4,768,879,5,1471,1471,5,1536,1541,1,1648,1648,5,1767,1768,5,1840,1866,5,2070,2073,5,2137,2139,5,2307,2307,7,2366,2368,7,2382,2383,7,2434,2435,7,2497,2500,5,2519,2519,5,2563,2563,7,2631,2632,5,2677,2677,5,2750,2752,7,2763,2764,7,2817,2817,5,2879,2879,5,2891,2892,7,2914,2915,5,3008,3008,5,3021,3021,5,3076,3076,5,3146,3149,5,3202,3203,7,3264,3265,7,3271,3272,7,3298,3299,5,3390,3390,5,3402,3404,7,3426,3427,5,3535,3535,5,3544,3550,7,3635,3635,7,3763,3763,7,3893,3893,5,3953,3966,5,3981,3991,5,4145,4145,7,4157,4158,5,4209,4212,5,4237,4237,5,4520,4607,10,5970,5971,5,6071,6077,5,6089,6099,5,6277,6278,5,6439,6440,5,6451,6456,7,6683,6683,5,6744,6750,5,6765,6770,7,6846,6846,5,6964,6964,5,6972,6972,5,7019,7027,5,7074,7077,5,7083,7085,5,7146,7148,7,7154,7155,7,7222,7223,5,7394,7400,5,7416,7417,5,8204,8204,5,8233,8233,4,8288,8292,4,8413,8416,5,8482,8482,14,8986,8987,14,9193,9203,14,9654,9654,14,9733,9733,14,9745,9745,14,9752,9752,14,9760,9760,14,9766,9766,14,9774,9775,14,9792,9792,14,9800,9811,14,9825,9826,14,9831,9831,14,9852,9853,14,9872,9873,14,9880,9880,14,9885,9887,14,9896,9897,14,9906,9916,14,9926,9927,14,9936,9936,14,9941,9960,14,9974,9974,14,9982,9985,14,9992,9997,14,10002,10002,14,10017,10017,14,10055,10055,14,10071,10071,14,10145,10145,14,11013,11015,14,11503,11505,5,12334,12335,5,12951,12951,14,42612,42621,5,43014,43014,5,43047,43047,7,43204,43205,5,43335,43345,5,43395,43395,7,43450,43451,7,43561,43566,5,43573,43574,5,43644,43644,5,43710,43711,5,43758,43759,7,44005,44005,5,44012,44012,7,44060,44060,11,44116,44116,11,44172,44172,11,44228,44228,11,44284,44284,11,44340,44340,11,44396,44396,11,44452,44452,11,44508,44508,11,44564,44564,11,44620,44620,11,44676,44676,11,44732,44732,11,44788,44788,11,44844,44844,11,44900,44900,11,44956,44956,11,45012,45012,11,45068,45068,11,45124,45124,11,45180,45180,11,45236,45236,11,45292,45292,11,45348,45348,11,45404,45404,11,45460,45460,11,45516,45516,11,45572,45572,11,45628,45628,11,45684,45684,11,45740,45740,11,45796,45796,11,45852,45852,11,45908,45908,11,45964,45964,11,46020,46020,11,46076,46076,11,46132,46132,11,46188,46188,11,46244,46244,11,46300,46300,11,46356,46356,11,46412,46412,11,46468,46468,11,46524,46524,11,46580,46580,11,46636,46636,11,46692,46692,11,46748,46748,11,46804,46804,11,46860,46860,11,46916,46916,11,46972,46972,11,47028,47028,11,47084,47084,11,47140,47140,11,47196,47196,11,47252,47252,11,47308,47308,11,47364,47364,11,47420,47420,11,47476,47476,11,47532,47532,11,47588,47588,11,47644,47644,11,47700,47700,11,47756,47756,11,47812,47812,11,47868,47868,11,47924,47924,11,47980,47980,11,48036,48036,11,48092,48092,11,48148,48148,11,48204,48204,11,48260,48260,11,48316,48316,11,48372,48372,11,48428,48428,11,48484,48484,11,48540,48540,11,48596,48596,11,48652,48652,11,48708,48708,11,48764,48764,11,48820,48820,11,48876,48876,11,48932,48932,11,48988,48988,11,49044,49044,11,49100,49100,11,49156,49156,11,49212,49212,11,49268,49268,11,49324,49324,11,49380,49380,11,49436,49436,11,49492,49492,11,49548,49548,11,49604,49604,11,49660,49660,11,49716,49716,11,49772,49772,11,49828,49828,11,49884,49884,11,49940,49940,11,49996,49996,11,50052,50052,11,50108,50108,11,50164,50164,11,50220,50220,11,50276,50276,11,50332,50332,11,50388,50388,11,50444,50444,11,50500,50500,11,50556,50556,11,50612,50612,11,50668,50668,11,50724,50724,11,50780,50780,11,50836,50836,11,50892,50892,11,50948,50948,11,51004,51004,11,51060,51060,11,51116,51116,11,51172,51172,11,51228,51228,11,51284,51284,11,51340,51340,11,51396,51396,11,51452,51452,11,51508,51508,11,51564,51564,11,51620,51620,11,51676,51676,11,51732,51732,11,51788,51788,11,51844,51844,11,51900,51900,11,51956,51956,11,52012,52012,11,52068,52068,11,52124,52124,11,52180,52180,11,52236,52236,11,52292,52292,11,52348,52348,11,52404,52404,11,52460,52460,11,52516,52516,11,52572,52572,11,52628,52628,11,52684,52684,11,52740,52740,11,52796,52796,11,52852,52852,11,52908,52908,11,52964,52964,11,53020,53020,11,53076,53076,11,53132,53132,11,53188,53188,11,53244,53244,11,53300,53300,11,53356,53356,11,53412,53412,11,53468,53468,11,53524,53524,11,53580,53580,11,53636,53636,11,53692,53692,11,53748,53748,11,53804,53804,11,53860,53860,11,53916,53916,11,53972,53972,11,54028,54028,11,54084,54084,11,54140,54140,11,54196,54196,11,54252,54252,11,54308,54308,11,54364,54364,11,54420,54420,11,54476,54476,11,54532,54532,11,54588,54588,11,54644,54644,11,54700,54700,11,54756,54756,11,54812,54812,11,54868,54868,11,54924,54924,11,54980,54980,11,55036,55036,11,55092,55092,11,55148,55148,11,55216,55238,9,65056,65071,5,65529,65531,4,68097,68099,5,68159,68159,5,69446,69456,5,69688,69702,5,69808,69810,7,69815,69816,7,69821,69821,1,69888,69890,5,69932,69932,7,69957,69958,7,70016,70017,5,70067,70069,7,70079,70080,7,70089,70092,5,70095,70095,5,70191,70193,5,70196,70196,5,70198,70199,5,70367,70367,5,70371,70378,5,70402,70403,7,70462,70462,5,70464,70464,5,70471,70472,7,70487,70487,5,70502,70508,5,70709,70711,7,70720,70721,7,70725,70725,7,70750,70750,5,70833,70834,7,70841,70841,7,70843,70844,7,70846,70846,7,70849,70849,7,71087,71087,5,71090,71093,5,71100,71101,5,71103,71104,5,71216,71218,7,71227,71228,7,71230,71230,7,71339,71339,5,71341,71341,5,71344,71349,5,71351,71351,5,71456,71457,7,71462,71462,7,71724,71726,7,71736,71736,7,71984,71984,5,71991,71992,7,71997,71997,7,71999,71999,1,72001,72001,1,72003,72003,5,72148,72151,5,72156,72159,7,72164,72164,7,72243,72248,5,72250,72250,1,72263,72263,5,72279,72280,7,72324,72329,1,72343,72343,7,72751,72751,7,72760,72765,5,72767,72767,5,72873,72873,7,72881,72881,7,72884,72884,7,73009,73014,5,73020,73021,5,73030,73030,1,73098,73102,7,73107,73108,7,73110,73110,7,73459,73460,5,78896,78904,4,92976,92982,5,94033,94087,7,94180,94180,5,113821,113822,5,119141,119141,5,119143,119145,5,119150,119154,5,119163,119170,5,119210,119213,5,121344,121398,5,121461,121461,5,121499,121503,5,122880,122886,5,122907,122913,5,122918,122922,5,123628,123631,5,125252,125258,5,126980,126980,14,127183,127183,14,127245,127247,14,127340,127343,14,127358,127359,14,127377,127386,14,127462,127487,6,127491,127503,14,127535,127535,14,127548,127551,14,127568,127569,14,127744,127777,14,127780,127891,14,127894,127895,14,127897,127899,14,127902,127984,14,127987,127989,14,127991,127994,14,128000,128253,14,128255,128317,14,128329,128334,14,128336,128359,14,128367,128368,14,128371,128377,14,128379,128390,14,128392,128393,14,128398,128399,14,128401,128404,14,128407,128419,14,128421,128421,14,128424,128424,14,128433,128434,14,128444,128444,14,128450,128452,14,128465,128467,14,128476,128478,14,128481,128481,14,128483,128483,14,128488,128488,14,128495,128495,14,128499,128499,14,128506,128591,14,128710,128714,14,128721,128722,14,128725,128725,14,128728,128735,14,128742,128744,14,128746,128746,14,128749,128751,14,128753,128754,14,128756,128758,14,128761,128761,14,128763,128764,14,128884,128895,14,128992,129003,14,129036,129039,14,129114,129119,14,129198,129279,14,129293,129295,14,129305,129310,14,129312,129319,14,129328,129328,14,129331,129338,14,129343,129343,14,129351,129355,14,129357,129359,14,129375,129387,14,129393,129393,14,129395,129398,14,129401,129401,14,129403,129403,14,129408,129412,14,129426,129431,14,129443,129444,14,129451,129453,14,129456,129465,14,129472,129472,14,129475,129482,14,129484,129484,14,129488,129510,14,129536,129647,14,129652,129652,14,129656,129658,14,129664,129666,14,129671,129679,14,129686,129704,14,129712,129718,14,129728,129730,14,129744,129750,14,917504,917504,4,917506,917535,4,917632,917759,4,918000,921599,4,0,9,4,11,12,4,14,31,4,169,169,14,174,174,14,1155,1159,5,1425,1469,5,1473,1474,5,1479,1479,5,1552,1562,5,1611,1631,5,1750,1756,5,1759,1764,5,1770,1773,5,1809,1809,5,1958,1968,5,2045,2045,5,2075,2083,5,2089,2093,5,2259,2273,5,2275,2306,5,2362,2362,5,2364,2364,5,2369,2376,5,2381,2381,5,2385,2391,5,2433,2433,5,2492,2492,5,2495,2496,7,2503,2504,7,2509,2509,5,2530,2531,5,2561,2562,5,2620,2620,5,2625,2626,5,2635,2637,5,2672,2673,5,2689,2690,5,2748,2748,5,2753,2757,5,2761,2761,7,2765,2765,5,2810,2815,5,2818,2819,7,2878,2878,5,2880,2880,7,2887,2888,7,2893,2893,5,2903,2903,5,2946,2946,5,3007,3007,7,3009,3010,7,3018,3020,7,3031,3031,5,3073,3075,7,3134,3136,5,3142,3144,5,3157,3158,5,3201,3201,5,3260,3260,5,3263,3263,5,3266,3266,5,3270,3270,5,3274,3275,7,3285,3286,5,3328,3329,5,3387,3388,5,3391,3392,7,3398,3400,7,3405,3405,5,3415,3415,5,3457,3457,5,3530,3530,5,3536,3537,7,3542,3542,5,3551,3551,5,3633,3633,5,3636,3642,5,3761,3761,5,3764,3772,5,3864,3865,5,3895,3895,5,3902,3903,7,3967,3967,7,3974,3975,5,3993,4028,5,4141,4144,5,4146,4151,5,4155,4156,7,4182,4183,7,4190,4192,5,4226,4226,5,4229,4230,5,4253,4253,5,4448,4519,9,4957,4959,5,5938,5940,5,6002,6003,5,6070,6070,7,6078,6085,7,6087,6088,7,6109,6109,5,6158,6158,4,6313,6313,5,6435,6438,7,6441,6443,7,6450,6450,5,6457,6459,5,6681,6682,7,6741,6741,7,6743,6743,7,6752,6752,5,6757,6764,5,6771,6780,5,6832,6845,5,6847,6848,5,6916,6916,7,6965,6965,5,6971,6971,7,6973,6977,7,6979,6980,7,7040,7041,5,7073,7073,7,7078,7079,7,7082,7082,7,7142,7142,5,7144,7145,5,7149,7149,5,7151,7153,5,7204,7211,7,7220,7221,7,7376,7378,5,7393,7393,7,7405,7405,5,7415,7415,7,7616,7673,5,8203,8203,4,8205,8205,13,8232,8232,4,8234,8238,4,8265,8265,14,8293,8293,4,8400,8412,5,8417,8417,5,8421,8432,5,8505,8505,14,8617,8618,14,9000,9000,14,9167,9167,14,9208,9210,14,9642,9643,14,9664,9664,14,9728,9732,14,9735,9741,14,9743,9744,14,9746,9746,14,9750,9751,14,9753,9756,14,9758,9759,14,9761,9761,14,9764,9765,14,9767,9769,14,9771,9773,14,9776,9783,14,9787,9791,14,9793,9793,14,9795,9799,14,9812,9822,14,9824,9824,14,9827,9827,14,9829,9830,14,9832,9832,14,9851,9851,14,9854,9854,14,9856,9861,14,9874,9876,14,9878,9879,14,9881,9881,14,9883,9884,14,9888,9889,14,9895,9895,14,9898,9899,14,9904,9905,14,9917,9918,14,9924,9925,14,9928,9928,14,9934,9935,14,9937,9937,14,9939,9940,14,9961,9962,14,9968,9973,14,9975,9978,14,9981,9981,14,9986,9986,14,9989,9989,14,9998,9998,14,10000,10001,14,10004,10004,14,10013,10013,14,10024,10024,14,10052,10052,14,10060,10060,14,10067,10069,14,10083,10084,14,10133,10135,14,10160,10160,14,10548,10549,14,11035,11036,14,11093,11093,14,11647,11647,5,12330,12333,5,12336,12336,14,12441,12442,5,12953,12953,14,42608,42610,5,42654,42655,5,43010,43010,5,43019,43019,5,43045,43046,5,43052,43052,5,43188,43203,7,43232,43249,5,43302,43309,5,43346,43347,7,43392,43394,5,43443,43443,5,43446,43449,5,43452,43453,5,43493,43493,5,43567,43568,7,43571,43572,7,43587,43587,5,43597,43597,7,43696,43696,5,43703,43704,5,43713,43713,5,43756,43757,5,43765,43765,7,44003,44004,7,44006,44007,7,44009,44010,7,44013,44013,5,44033,44059,12,44061,44087,12,44089,44115,12,44117,44143,12,44145,44171,12,44173,44199,12,44201,44227,12,44229,44255,12,44257,44283,12,44285,44311,12,44313,44339,12,44341,44367,12,44369,44395,12,44397,44423,12,44425,44451,12,44453,44479,12,44481,44507,12,44509,44535,12,44537,44563,12,44565,44591,12,44593,44619,12,44621,44647,12,44649,44675,12,44677,44703,12,44705,44731,12,44733,44759,12,44761,44787,12,44789,44815,12,44817,44843,12,44845,44871,12,44873,44899,12,44901,44927,12,44929,44955,12,44957,44983,12,44985,45011,12,45013,45039,12,45041,45067,12,45069,45095,12,45097,45123,12,45125,45151,12,45153,45179,12,45181,45207,12,45209,45235,12,45237,45263,12,45265,45291,12,45293,45319,12,45321,45347,12,45349,45375,12,45377,45403,12,45405,45431,12,45433,45459,12,45461,45487,12,45489,45515,12,45517,45543,12,45545,45571,12,45573,45599,12,45601,45627,12,45629,45655,12,45657,45683,12,45685,45711,12,45713,45739,12,45741,45767,12,45769,45795,12,45797,45823,12,45825,45851,12,45853,45879,12,45881,45907,12,45909,45935,12,45937,45963,12,45965,45991,12,45993,46019,12,46021,46047,12,46049,46075,12,46077,46103,12,46105,46131,12,46133,46159,12,46161,46187,12,46189,46215,12,46217,46243,12,46245,46271,12,46273,46299,12,46301,46327,12,46329,46355,12,46357,46383,12,46385,46411,12,46413,46439,12,46441,46467,12,46469,46495,12,46497,46523,12,46525,46551,12,46553,46579,12,46581,46607,12,46609,46635,12,46637,46663,12,46665,46691,12,46693,46719,12,46721,46747,12,46749,46775,12,46777,46803,12,46805,46831,12,46833,46859,12,46861,46887,12,46889,46915,12,46917,46943,12,46945,46971,12,46973,46999,12,47001,47027,12,47029,47055,12,47057,47083,12,47085,47111,12,47113,47139,12,47141,47167,12,47169,47195,12,47197,47223,12,47225,47251,12,47253,47279,12,47281,47307,12,47309,47335,12,47337,47363,12,47365,47391,12,47393,47419,12,47421,47447,12,47449,47475,12,47477,47503,12,47505,47531,12,47533,47559,12,47561,47587,12,47589,47615,12,47617,47643,12,47645,47671,12,47673,47699,12,47701,47727,12,47729,47755,12,47757,47783,12,47785,47811,12,47813,47839,12,47841,47867,12,47869,47895,12,47897,47923,12,47925,47951,12,47953,47979,12,47981,48007,12,48009,48035,12,48037,48063,12,48065,48091,12,48093,48119,12,48121,48147,12,48149,48175,12,48177,48203,12,48205,48231,12,48233,48259,12,48261,48287,12,48289,48315,12,48317,48343,12,48345,48371,12,48373,48399,12,48401,48427,12,48429,48455,12,48457,48483,12,48485,48511,12,48513,48539,12,48541,48567,12,48569,48595,12,48597,48623,12,48625,48651,12,48653,48679,12,48681,48707,12,48709,48735,12,48737,48763,12,48765,48791,12,48793,48819,12,48821,48847,12,48849,48875,12,48877,48903,12,48905,48931,12,48933,48959,12,48961,48987,12,48989,49015,12,49017,49043,12,49045,49071,12,49073,49099,12,49101,49127,12,49129,49155,12,49157,49183,12,49185,49211,12,49213,49239,12,49241,49267,12,49269,49295,12,49297,49323,12,49325,49351,12,49353,49379,12,49381,49407,12,49409,49435,12,49437,49463,12,49465,49491,12,49493,49519,12,49521,49547,12,49549,49575,12,49577,49603,12,49605,49631,12,49633,49659,12,49661,49687,12,49689,49715,12,49717,49743,12,49745,49771,12,49773,49799,12,49801,49827,12,49829,49855,12,49857,49883,12,49885,49911,12,49913,49939,12,49941,49967,12,49969,49995,12,49997,50023,12,50025,50051,12,50053,50079,12,50081,50107,12,50109,50135,12,50137,50163,12,50165,50191,12,50193,50219,12,50221,50247,12,50249,50275,12,50277,50303,12,50305,50331,12,50333,50359,12,50361,50387,12,50389,50415,12,50417,50443,12,50445,50471,12,50473,50499,12,50501,50527,12,50529,50555,12,50557,50583,12,50585,50611,12,50613,50639,12,50641,50667,12,50669,50695,12,50697,50723,12,50725,50751,12,50753,50779,12,50781,50807,12,50809,50835,12,50837,50863,12,50865,50891,12,50893,50919,12,50921,50947,12,50949,50975,12,50977,51003,12,51005,51031,12,51033,51059,12,51061,51087,12,51089,51115,12,51117,51143,12,51145,51171,12,51173,51199,12,51201,51227,12,51229,51255,12,51257,51283,12,51285,51311,12,51313,51339,12,51341,51367,12,51369,51395,12,51397,51423,12,51425,51451,12,51453,51479,12,51481,51507,12,51509,51535,12,51537,51563,12,51565,51591,12,51593,51619,12,51621,51647,12,51649,51675,12,51677,51703,12,51705,51731,12,51733,51759,12,51761,51787,12,51789,51815,12,51817,51843,12,51845,51871,12,51873,51899,12,51901,51927,12,51929,51955,12,51957,51983,12,51985,52011,12,52013,52039,12,52041,52067,12,52069,52095,12,52097,52123,12,52125,52151,12,52153,52179,12,52181,52207,12,52209,52235,12,52237,52263,12,52265,52291,12,52293,52319,12,52321,52347,12,52349,52375,12,52377,52403,12,52405,52431,12,52433,52459,12,52461,52487,12,52489,52515,12,52517,52543,12,52545,52571,12,52573,52599,12,52601,52627,12,52629,52655,12,52657,52683,12,52685,52711,12,52713,52739,12,52741,52767,12,52769,52795,12,52797,52823,12,52825,52851,12,52853,52879,12,52881,52907,12,52909,52935,12,52937,52963,12,52965,52991,12,52993,53019,12,53021,53047,12,53049,53075,12,53077,53103,12,53105,53131,12,53133,53159,12,53161,53187,12,53189,53215,12,53217,53243,12,53245,53271,12,53273,53299,12,53301,53327,12,53329,53355,12,53357,53383,12,53385,53411,12,53413,53439,12,53441,53467,12,53469,53495,12,53497,53523,12,53525,53551,12,53553,53579,12,53581,53607,12,53609,53635,12,53637,53663,12,53665,53691,12,53693,53719,12,53721,53747,12,53749,53775,12,53777,53803,12,53805,53831,12,53833,53859,12,53861,53887,12,53889,53915,12,53917,53943,12,53945,53971,12,53973,53999,12,54001,54027,12,54029,54055,12,54057,54083,12,54085,54111,12,54113,54139,12,54141,54167,12,54169,54195,12,54197,54223,12,54225,54251,12,54253,54279,12,54281,54307,12,54309,54335,12,54337,54363,12,54365,54391,12,54393,54419,12,54421,54447,12,54449,54475,12,54477,54503,12,54505,54531,12,54533,54559,12,54561,54587,12,54589,54615,12,54617,54643,12,54645,54671,12,54673,54699,12,54701,54727,12,54729,54755,12,54757,54783,12,54785,54811,12,54813,54839,12,54841,54867,12,54869,54895,12,54897,54923,12,54925,54951,12,54953,54979,12,54981,55007,12,55009,55035,12,55037,55063,12,55065,55091,12,55093,55119,12,55121,55147,12,55149,55175,12,55177,55203,12,55243,55291,10,65024,65039,5,65279,65279,4,65520,65528,4,66045,66045,5,66422,66426,5,68101,68102,5,68152,68154,5,68325,68326,5,69291,69292,5,69632,69632,7,69634,69634,7,69759,69761,5]');
+    // generated using https://github.com/alexdima/unicode-utils/blob/main/grapheme-break.js
+    return JSON.parse('[0,0,0,51229,51255,12,44061,44087,12,127462,127487,6,7083,7085,5,47645,47671,12,54813,54839,12,128678,128678,14,3270,3270,5,9919,9923,14,45853,45879,12,49437,49463,12,53021,53047,12,71216,71218,7,128398,128399,14,129360,129374,14,2519,2519,5,4448,4519,9,9742,9742,14,12336,12336,14,44957,44983,12,46749,46775,12,48541,48567,12,50333,50359,12,52125,52151,12,53917,53943,12,69888,69890,5,73018,73018,5,127990,127990,14,128558,128559,14,128759,128760,14,129653,129655,14,2027,2035,5,2891,2892,7,3761,3761,5,6683,6683,5,8293,8293,4,9825,9826,14,9999,9999,14,43452,43453,5,44509,44535,12,45405,45431,12,46301,46327,12,47197,47223,12,48093,48119,12,48989,49015,12,49885,49911,12,50781,50807,12,51677,51703,12,52573,52599,12,53469,53495,12,54365,54391,12,65279,65279,4,70471,70472,7,72145,72147,7,119173,119179,5,127799,127818,14,128240,128244,14,128512,128512,14,128652,128652,14,128721,128722,14,129292,129292,14,129445,129450,14,129734,129743,14,1476,1477,5,2366,2368,7,2750,2752,7,3076,3076,5,3415,3415,5,4141,4144,5,6109,6109,5,6964,6964,5,7394,7400,5,9197,9198,14,9770,9770,14,9877,9877,14,9968,9969,14,10084,10084,14,43052,43052,5,43713,43713,5,44285,44311,12,44733,44759,12,45181,45207,12,45629,45655,12,46077,46103,12,46525,46551,12,46973,46999,12,47421,47447,12,47869,47895,12,48317,48343,12,48765,48791,12,49213,49239,12,49661,49687,12,50109,50135,12,50557,50583,12,51005,51031,12,51453,51479,12,51901,51927,12,52349,52375,12,52797,52823,12,53245,53271,12,53693,53719,12,54141,54167,12,54589,54615,12,55037,55063,12,69506,69509,5,70191,70193,5,70841,70841,7,71463,71467,5,72330,72342,5,94031,94031,5,123628,123631,5,127763,127765,14,127941,127941,14,128043,128062,14,128302,128317,14,128465,128467,14,128539,128539,14,128640,128640,14,128662,128662,14,128703,128703,14,128745,128745,14,129004,129007,14,129329,129330,14,129402,129402,14,129483,129483,14,129686,129704,14,130048,131069,14,173,173,4,1757,1757,1,2200,2207,5,2434,2435,7,2631,2632,5,2817,2817,5,3008,3008,5,3201,3201,5,3387,3388,5,3542,3542,5,3902,3903,7,4190,4192,5,6002,6003,5,6439,6440,5,6765,6770,7,7019,7027,5,7154,7155,7,8205,8205,13,8505,8505,14,9654,9654,14,9757,9757,14,9792,9792,14,9852,9853,14,9890,9894,14,9937,9937,14,9981,9981,14,10035,10036,14,11035,11036,14,42654,42655,5,43346,43347,7,43587,43587,5,44006,44007,7,44173,44199,12,44397,44423,12,44621,44647,12,44845,44871,12,45069,45095,12,45293,45319,12,45517,45543,12,45741,45767,12,45965,45991,12,46189,46215,12,46413,46439,12,46637,46663,12,46861,46887,12,47085,47111,12,47309,47335,12,47533,47559,12,47757,47783,12,47981,48007,12,48205,48231,12,48429,48455,12,48653,48679,12,48877,48903,12,49101,49127,12,49325,49351,12,49549,49575,12,49773,49799,12,49997,50023,12,50221,50247,12,50445,50471,12,50669,50695,12,50893,50919,12,51117,51143,12,51341,51367,12,51565,51591,12,51789,51815,12,52013,52039,12,52237,52263,12,52461,52487,12,52685,52711,12,52909,52935,12,53133,53159,12,53357,53383,12,53581,53607,12,53805,53831,12,54029,54055,12,54253,54279,12,54477,54503,12,54701,54727,12,54925,54951,12,55149,55175,12,68101,68102,5,69762,69762,7,70067,70069,7,70371,70378,5,70720,70721,7,71087,71087,5,71341,71341,5,71995,71996,5,72249,72249,7,72850,72871,5,73109,73109,5,118576,118598,5,121505,121519,5,127245,127247,14,127568,127569,14,127777,127777,14,127872,127891,14,127956,127967,14,128015,128016,14,128110,128172,14,128259,128259,14,128367,128368,14,128424,128424,14,128488,128488,14,128530,128532,14,128550,128551,14,128566,128566,14,128647,128647,14,128656,128656,14,128667,128673,14,128691,128693,14,128715,128715,14,128728,128732,14,128752,128752,14,128765,128767,14,129096,129103,14,129311,129311,14,129344,129349,14,129394,129394,14,129413,129425,14,129466,129471,14,129511,129535,14,129664,129666,14,129719,129722,14,129760,129767,14,917536,917631,5,13,13,2,1160,1161,5,1564,1564,4,1807,1807,1,2085,2087,5,2307,2307,7,2382,2383,7,2497,2500,5,2563,2563,7,2677,2677,5,2763,2764,7,2879,2879,5,2914,2915,5,3021,3021,5,3142,3144,5,3263,3263,5,3285,3286,5,3398,3400,7,3530,3530,5,3633,3633,5,3864,3865,5,3974,3975,5,4155,4156,7,4229,4230,5,5909,5909,7,6078,6085,7,6277,6278,5,6451,6456,7,6744,6750,5,6846,6846,5,6972,6972,5,7074,7077,5,7146,7148,7,7222,7223,5,7416,7417,5,8234,8238,4,8417,8417,5,9000,9000,14,9203,9203,14,9730,9731,14,9748,9749,14,9762,9763,14,9776,9783,14,9800,9811,14,9831,9831,14,9872,9873,14,9882,9882,14,9900,9903,14,9929,9933,14,9941,9960,14,9974,9974,14,9989,9989,14,10006,10006,14,10062,10062,14,10160,10160,14,11647,11647,5,12953,12953,14,43019,43019,5,43232,43249,5,43443,43443,5,43567,43568,7,43696,43696,5,43765,43765,7,44013,44013,5,44117,44143,12,44229,44255,12,44341,44367,12,44453,44479,12,44565,44591,12,44677,44703,12,44789,44815,12,44901,44927,12,45013,45039,12,45125,45151,12,45237,45263,12,45349,45375,12,45461,45487,12,45573,45599,12,45685,45711,12,45797,45823,12,45909,45935,12,46021,46047,12,46133,46159,12,46245,46271,12,46357,46383,12,46469,46495,12,46581,46607,12,46693,46719,12,46805,46831,12,46917,46943,12,47029,47055,12,47141,47167,12,47253,47279,12,47365,47391,12,47477,47503,12,47589,47615,12,47701,47727,12,47813,47839,12,47925,47951,12,48037,48063,12,48149,48175,12,48261,48287,12,48373,48399,12,48485,48511,12,48597,48623,12,48709,48735,12,48821,48847,12,48933,48959,12,49045,49071,12,49157,49183,12,49269,49295,12,49381,49407,12,49493,49519,12,49605,49631,12,49717,49743,12,49829,49855,12,49941,49967,12,50053,50079,12,50165,50191,12,50277,50303,12,50389,50415,12,50501,50527,12,50613,50639,12,50725,50751,12,50837,50863,12,50949,50975,12,51061,51087,12,51173,51199,12,51285,51311,12,51397,51423,12,51509,51535,12,51621,51647,12,51733,51759,12,51845,51871,12,51957,51983,12,52069,52095,12,52181,52207,12,52293,52319,12,52405,52431,12,52517,52543,12,52629,52655,12,52741,52767,12,52853,52879,12,52965,52991,12,53077,53103,12,53189,53215,12,53301,53327,12,53413,53439,12,53525,53551,12,53637,53663,12,53749,53775,12,53861,53887,12,53973,53999,12,54085,54111,12,54197,54223,12,54309,54335,12,54421,54447,12,54533,54559,12,54645,54671,12,54757,54783,12,54869,54895,12,54981,55007,12,55093,55119,12,55243,55291,10,66045,66045,5,68325,68326,5,69688,69702,5,69817,69818,5,69957,69958,7,70089,70092,5,70198,70199,5,70462,70462,5,70502,70508,5,70750,70750,5,70846,70846,7,71100,71101,5,71230,71230,7,71351,71351,5,71737,71738,5,72000,72000,7,72160,72160,5,72273,72278,5,72752,72758,5,72882,72883,5,73031,73031,5,73461,73462,7,94192,94193,7,119149,119149,7,121403,121452,5,122915,122916,5,126980,126980,14,127358,127359,14,127535,127535,14,127759,127759,14,127771,127771,14,127792,127793,14,127825,127867,14,127897,127899,14,127945,127945,14,127985,127986,14,128000,128007,14,128021,128021,14,128066,128100,14,128184,128235,14,128249,128252,14,128266,128276,14,128335,128335,14,128379,128390,14,128407,128419,14,128444,128444,14,128481,128481,14,128499,128499,14,128526,128526,14,128536,128536,14,128543,128543,14,128556,128556,14,128564,128564,14,128577,128580,14,128643,128645,14,128649,128649,14,128654,128654,14,128660,128660,14,128664,128664,14,128675,128675,14,128686,128689,14,128695,128696,14,128705,128709,14,128717,128719,14,128725,128725,14,128736,128741,14,128747,128748,14,128755,128755,14,128762,128762,14,128981,128991,14,129009,129023,14,129160,129167,14,129296,129304,14,129320,129327,14,129340,129342,14,129356,129356,14,129388,129392,14,129399,129400,14,129404,129407,14,129432,129442,14,129454,129455,14,129473,129474,14,129485,129487,14,129648,129651,14,129659,129660,14,129671,129679,14,129709,129711,14,129728,129730,14,129751,129753,14,129776,129782,14,917505,917505,4,917760,917999,5,10,10,3,127,159,4,768,879,5,1471,1471,5,1536,1541,1,1648,1648,5,1767,1768,5,1840,1866,5,2070,2073,5,2137,2139,5,2274,2274,1,2363,2363,7,2377,2380,7,2402,2403,5,2494,2494,5,2507,2508,7,2558,2558,5,2622,2624,7,2641,2641,5,2691,2691,7,2759,2760,5,2786,2787,5,2876,2876,5,2881,2884,5,2901,2902,5,3006,3006,5,3014,3016,7,3072,3072,5,3134,3136,5,3157,3158,5,3260,3260,5,3266,3266,5,3274,3275,7,3328,3329,5,3391,3392,7,3405,3405,5,3457,3457,5,3536,3537,7,3551,3551,5,3636,3642,5,3764,3772,5,3895,3895,5,3967,3967,7,3993,4028,5,4146,4151,5,4182,4183,7,4226,4226,5,4253,4253,5,4957,4959,5,5940,5940,7,6070,6070,7,6087,6088,7,6158,6158,4,6432,6434,5,6448,6449,7,6679,6680,5,6742,6742,5,6754,6754,5,6783,6783,5,6912,6915,5,6966,6970,5,6978,6978,5,7042,7042,7,7080,7081,5,7143,7143,7,7150,7150,7,7212,7219,5,7380,7392,5,7412,7412,5,8203,8203,4,8232,8232,4,8265,8265,14,8400,8412,5,8421,8432,5,8617,8618,14,9167,9167,14,9200,9200,14,9410,9410,14,9723,9726,14,9733,9733,14,9745,9745,14,9752,9752,14,9760,9760,14,9766,9766,14,9774,9774,14,9786,9786,14,9794,9794,14,9823,9823,14,9828,9828,14,9833,9850,14,9855,9855,14,9875,9875,14,9880,9880,14,9885,9887,14,9896,9897,14,9906,9916,14,9926,9927,14,9935,9935,14,9939,9939,14,9962,9962,14,9972,9972,14,9978,9978,14,9986,9986,14,9997,9997,14,10002,10002,14,10017,10017,14,10055,10055,14,10071,10071,14,10133,10135,14,10548,10549,14,11093,11093,14,12330,12333,5,12441,12442,5,42608,42610,5,43010,43010,5,43045,43046,5,43188,43203,7,43302,43309,5,43392,43394,5,43446,43449,5,43493,43493,5,43571,43572,7,43597,43597,7,43703,43704,5,43756,43757,5,44003,44004,7,44009,44010,7,44033,44059,12,44089,44115,12,44145,44171,12,44201,44227,12,44257,44283,12,44313,44339,12,44369,44395,12,44425,44451,12,44481,44507,12,44537,44563,12,44593,44619,12,44649,44675,12,44705,44731,12,44761,44787,12,44817,44843,12,44873,44899,12,44929,44955,12,44985,45011,12,45041,45067,12,45097,45123,12,45153,45179,12,45209,45235,12,45265,45291,12,45321,45347,12,45377,45403,12,45433,45459,12,45489,45515,12,45545,45571,12,45601,45627,12,45657,45683,12,45713,45739,12,45769,45795,12,45825,45851,12,45881,45907,12,45937,45963,12,45993,46019,12,46049,46075,12,46105,46131,12,46161,46187,12,46217,46243,12,46273,46299,12,46329,46355,12,46385,46411,12,46441,46467,12,46497,46523,12,46553,46579,12,46609,46635,12,46665,46691,12,46721,46747,12,46777,46803,12,46833,46859,12,46889,46915,12,46945,46971,12,47001,47027,12,47057,47083,12,47113,47139,12,47169,47195,12,47225,47251,12,47281,47307,12,47337,47363,12,47393,47419,12,47449,47475,12,47505,47531,12,47561,47587,12,47617,47643,12,47673,47699,12,47729,47755,12,47785,47811,12,47841,47867,12,47897,47923,12,47953,47979,12,48009,48035,12,48065,48091,12,48121,48147,12,48177,48203,12,48233,48259,12,48289,48315,12,48345,48371,12,48401,48427,12,48457,48483,12,48513,48539,12,48569,48595,12,48625,48651,12,48681,48707,12,48737,48763,12,48793,48819,12,48849,48875,12,48905,48931,12,48961,48987,12,49017,49043,12,49073,49099,12,49129,49155,12,49185,49211,12,49241,49267,12,49297,49323,12,49353,49379,12,49409,49435,12,49465,49491,12,49521,49547,12,49577,49603,12,49633,49659,12,49689,49715,12,49745,49771,12,49801,49827,12,49857,49883,12,49913,49939,12,49969,49995,12,50025,50051,12,50081,50107,12,50137,50163,12,50193,50219,12,50249,50275,12,50305,50331,12,50361,50387,12,50417,50443,12,50473,50499,12,50529,50555,12,50585,50611,12,50641,50667,12,50697,50723,12,50753,50779,12,50809,50835,12,50865,50891,12,50921,50947,12,50977,51003,12,51033,51059,12,51089,51115,12,51145,51171,12,51201,51227,12,51257,51283,12,51313,51339,12,51369,51395,12,51425,51451,12,51481,51507,12,51537,51563,12,51593,51619,12,51649,51675,12,51705,51731,12,51761,51787,12,51817,51843,12,51873,51899,12,51929,51955,12,51985,52011,12,52041,52067,12,52097,52123,12,52153,52179,12,52209,52235,12,52265,52291,12,52321,52347,12,52377,52403,12,52433,52459,12,52489,52515,12,52545,52571,12,52601,52627,12,52657,52683,12,52713,52739,12,52769,52795,12,52825,52851,12,52881,52907,12,52937,52963,12,52993,53019,12,53049,53075,12,53105,53131,12,53161,53187,12,53217,53243,12,53273,53299,12,53329,53355,12,53385,53411,12,53441,53467,12,53497,53523,12,53553,53579,12,53609,53635,12,53665,53691,12,53721,53747,12,53777,53803,12,53833,53859,12,53889,53915,12,53945,53971,12,54001,54027,12,54057,54083,12,54113,54139,12,54169,54195,12,54225,54251,12,54281,54307,12,54337,54363,12,54393,54419,12,54449,54475,12,54505,54531,12,54561,54587,12,54617,54643,12,54673,54699,12,54729,54755,12,54785,54811,12,54841,54867,12,54897,54923,12,54953,54979,12,55009,55035,12,55065,55091,12,55121,55147,12,55177,55203,12,65024,65039,5,65520,65528,4,66422,66426,5,68152,68154,5,69291,69292,5,69633,69633,5,69747,69748,5,69811,69814,5,69826,69826,5,69932,69932,7,70016,70017,5,70079,70080,7,70095,70095,5,70196,70196,5,70367,70367,5,70402,70403,7,70464,70464,5,70487,70487,5,70709,70711,7,70725,70725,7,70833,70834,7,70843,70844,7,70849,70849,7,71090,71093,5,71103,71104,5,71227,71228,7,71339,71339,5,71344,71349,5,71458,71461,5,71727,71735,5,71985,71989,7,71998,71998,5,72002,72002,7,72154,72155,5,72193,72202,5,72251,72254,5,72281,72283,5,72344,72345,5,72766,72766,7,72874,72880,5,72885,72886,5,73023,73029,5,73104,73105,5,73111,73111,5,92912,92916,5,94095,94098,5,113824,113827,4,119142,119142,7,119155,119162,4,119362,119364,5,121476,121476,5,122888,122904,5,123184,123190,5,125252,125258,5,127183,127183,14,127340,127343,14,127377,127386,14,127491,127503,14,127548,127551,14,127744,127756,14,127761,127761,14,127769,127769,14,127773,127774,14,127780,127788,14,127796,127797,14,127820,127823,14,127869,127869,14,127894,127895,14,127902,127903,14,127943,127943,14,127947,127950,14,127972,127972,14,127988,127988,14,127992,127994,14,128009,128011,14,128019,128019,14,128023,128041,14,128064,128064,14,128102,128107,14,128174,128181,14,128238,128238,14,128246,128247,14,128254,128254,14,128264,128264,14,128278,128299,14,128329,128330,14,128348,128359,14,128371,128377,14,128392,128393,14,128401,128404,14,128421,128421,14,128433,128434,14,128450,128452,14,128476,128478,14,128483,128483,14,128495,128495,14,128506,128506,14,128519,128520,14,128528,128528,14,128534,128534,14,128538,128538,14,128540,128542,14,128544,128549,14,128552,128555,14,128557,128557,14,128560,128563,14,128565,128565,14,128567,128576,14,128581,128591,14,128641,128642,14,128646,128646,14,128648,128648,14,128650,128651,14,128653,128653,14,128655,128655,14,128657,128659,14,128661,128661,14,128663,128663,14,128665,128666,14,128674,128674,14,128676,128677,14,128679,128685,14,128690,128690,14,128694,128694,14,128697,128702,14,128704,128704,14,128710,128714,14,128716,128716,14,128720,128720,14,128723,128724,14,128726,128727,14,128733,128735,14,128742,128744,14,128746,128746,14,128749,128751,14,128753,128754,14,128756,128758,14,128761,128761,14,128763,128764,14,128884,128895,14,128992,129003,14,129008,129008,14,129036,129039,14,129114,129119,14,129198,129279,14,129293,129295,14,129305,129310,14,129312,129319,14,129328,129328,14,129331,129338,14,129343,129343,14,129351,129355,14,129357,129359,14,129375,129387,14,129393,129393,14,129395,129398,14,129401,129401,14,129403,129403,14,129408,129412,14,129426,129431,14,129443,129444,14,129451,129453,14,129456,129465,14,129472,129472,14,129475,129482,14,129484,129484,14,129488,129510,14,129536,129647,14,129652,129652,14,129656,129658,14,129661,129663,14,129667,129670,14,129680,129685,14,129705,129708,14,129712,129718,14,129723,129727,14,129731,129733,14,129744,129750,14,129754,129759,14,129768,129775,14,129783,129791,14,917504,917504,4,917506,917535,4,917632,917759,4,918000,921599,4,0,9,4,11,12,4,14,31,4,169,169,14,174,174,14,1155,1159,5,1425,1469,5,1473,1474,5,1479,1479,5,1552,1562,5,1611,1631,5,1750,1756,5,1759,1764,5,1770,1773,5,1809,1809,5,1958,1968,5,2045,2045,5,2075,2083,5,2089,2093,5,2192,2193,1,2250,2273,5,2275,2306,5,2362,2362,5,2364,2364,5,2369,2376,5,2381,2381,5,2385,2391,5,2433,2433,5,2492,2492,5,2495,2496,7,2503,2504,7,2509,2509,5,2530,2531,5,2561,2562,5,2620,2620,5,2625,2626,5,2635,2637,5,2672,2673,5,2689,2690,5,2748,2748,5,2753,2757,5,2761,2761,7,2765,2765,5,2810,2815,5,2818,2819,7,2878,2878,5,2880,2880,7,2887,2888,7,2893,2893,5,2903,2903,5,2946,2946,5,3007,3007,7,3009,3010,7,3018,3020,7,3031,3031,5,3073,3075,7,3132,3132,5,3137,3140,7,3146,3149,5,3170,3171,5,3202,3203,7,3262,3262,7,3264,3265,7,3267,3268,7,3271,3272,7,3276,3277,5,3298,3299,5,3330,3331,7,3390,3390,5,3393,3396,5,3402,3404,7,3406,3406,1,3426,3427,5,3458,3459,7,3535,3535,5,3538,3540,5,3544,3550,7,3570,3571,7,3635,3635,7,3655,3662,5,3763,3763,7,3784,3789,5,3893,3893,5,3897,3897,5,3953,3966,5,3968,3972,5,3981,3991,5,4038,4038,5,4145,4145,7,4153,4154,5,4157,4158,5,4184,4185,5,4209,4212,5,4228,4228,7,4237,4237,5,4352,4447,8,4520,4607,10,5906,5908,5,5938,5939,5,5970,5971,5,6068,6069,5,6071,6077,5,6086,6086,5,6089,6099,5,6155,6157,5,6159,6159,5,6313,6313,5,6435,6438,7,6441,6443,7,6450,6450,5,6457,6459,5,6681,6682,7,6741,6741,7,6743,6743,7,6752,6752,5,6757,6764,5,6771,6780,5,6832,6845,5,6847,6862,5,6916,6916,7,6965,6965,5,6971,6971,7,6973,6977,7,6979,6980,7,7040,7041,5,7073,7073,7,7078,7079,7,7082,7082,7,7142,7142,5,7144,7145,5,7149,7149,5,7151,7153,5,7204,7211,7,7220,7221,7,7376,7378,5,7393,7393,7,7405,7405,5,7415,7415,7,7616,7679,5,8204,8204,5,8206,8207,4,8233,8233,4,8252,8252,14,8288,8292,4,8294,8303,4,8413,8416,5,8418,8420,5,8482,8482,14,8596,8601,14,8986,8987,14,9096,9096,14,9193,9196,14,9199,9199,14,9201,9202,14,9208,9210,14,9642,9643,14,9664,9664,14,9728,9729,14,9732,9732,14,9735,9741,14,9743,9744,14,9746,9746,14,9750,9751,14,9753,9756,14,9758,9759,14,9761,9761,14,9764,9765,14,9767,9769,14,9771,9773,14,9775,9775,14,9784,9785,14,9787,9791,14,9793,9793,14,9795,9799,14,9812,9822,14,9824,9824,14,9827,9827,14,9829,9830,14,9832,9832,14,9851,9851,14,9854,9854,14,9856,9861,14,9874,9874,14,9876,9876,14,9878,9879,14,9881,9881,14,9883,9884,14,9888,9889,14,9895,9895,14,9898,9899,14,9904,9905,14,9917,9918,14,9924,9925,14,9928,9928,14,9934,9934,14,9936,9936,14,9938,9938,14,9940,9940,14,9961,9961,14,9963,9967,14,9970,9971,14,9973,9973,14,9975,9977,14,9979,9980,14,9982,9985,14,9987,9988,14,9992,9996,14,9998,9998,14,10000,10001,14,10004,10004,14,10013,10013,14,10024,10024,14,10052,10052,14,10060,10060,14,10067,10069,14,10083,10083,14,10085,10087,14,10145,10145,14,10175,10175,14,11013,11015,14,11088,11088,14,11503,11505,5,11744,11775,5,12334,12335,5,12349,12349,14,12951,12951,14,42607,42607,5,42612,42621,5,42736,42737,5,43014,43014,5,43043,43044,7,43047,43047,7,43136,43137,7,43204,43205,5,43263,43263,5,43335,43345,5,43360,43388,8,43395,43395,7,43444,43445,7,43450,43451,7,43454,43456,7,43561,43566,5,43569,43570,5,43573,43574,5,43596,43596,5,43644,43644,5,43698,43700,5,43710,43711,5,43755,43755,7,43758,43759,7,43766,43766,5,44005,44005,5,44008,44008,5,44012,44012,7,44032,44032,11,44060,44060,11,44088,44088,11,44116,44116,11,44144,44144,11,44172,44172,11,44200,44200,11,44228,44228,11,44256,44256,11,44284,44284,11,44312,44312,11,44340,44340,11,44368,44368,11,44396,44396,11,44424,44424,11,44452,44452,11,44480,44480,11,44508,44508,11,44536,44536,11,44564,44564,11,44592,44592,11,44620,44620,11,44648,44648,11,44676,44676,11,44704,44704,11,44732,44732,11,44760,44760,11,44788,44788,11,44816,44816,11,44844,44844,11,44872,44872,11,44900,44900,11,44928,44928,11,44956,44956,11,44984,44984,11,45012,45012,11,45040,45040,11,45068,45068,11,45096,45096,11,45124,45124,11,45152,45152,11,45180,45180,11,45208,45208,11,45236,45236,11,45264,45264,11,45292,45292,11,45320,45320,11,45348,45348,11,45376,45376,11,45404,45404,11,45432,45432,11,45460,45460,11,45488,45488,11,45516,45516,11,45544,45544,11,45572,45572,11,45600,45600,11,45628,45628,11,45656,45656,11,45684,45684,11,45712,45712,11,45740,45740,11,45768,45768,11,45796,45796,11,45824,45824,11,45852,45852,11,45880,45880,11,45908,45908,11,45936,45936,11,45964,45964,11,45992,45992,11,46020,46020,11,46048,46048,11,46076,46076,11,46104,46104,11,46132,46132,11,46160,46160,11,46188,46188,11,46216,46216,11,46244,46244,11,46272,46272,11,46300,46300,11,46328,46328,11,46356,46356,11,46384,46384,11,46412,46412,11,46440,46440,11,46468,46468,11,46496,46496,11,46524,46524,11,46552,46552,11,46580,46580,11,46608,46608,11,46636,46636,11,46664,46664,11,46692,46692,11,46720,46720,11,46748,46748,11,46776,46776,11,46804,46804,11,46832,46832,11,46860,46860,11,46888,46888,11,46916,46916,11,46944,46944,11,46972,46972,11,47000,47000,11,47028,47028,11,47056,47056,11,47084,47084,11,47112,47112,11,47140,47140,11,47168,47168,11,47196,47196,11,47224,47224,11,47252,47252,11,47280,47280,11,47308,47308,11,47336,47336,11,47364,47364,11,47392,47392,11,47420,47420,11,47448,47448,11,47476,47476,11,47504,47504,11,47532,47532,11,47560,47560,11,47588,47588,11,47616,47616,11,47644,47644,11,47672,47672,11,47700,47700,11,47728,47728,11,47756,47756,11,47784,47784,11,47812,47812,11,47840,47840,11,47868,47868,11,47896,47896,11,47924,47924,11,47952,47952,11,47980,47980,11,48008,48008,11,48036,48036,11,48064,48064,11,48092,48092,11,48120,48120,11,48148,48148,11,48176,48176,11,48204,48204,11,48232,48232,11,48260,48260,11,48288,48288,11,48316,48316,11,48344,48344,11,48372,48372,11,48400,48400,11,48428,48428,11,48456,48456,11,48484,48484,11,48512,48512,11,48540,48540,11,48568,48568,11,48596,48596,11,48624,48624,11,48652,48652,11,48680,48680,11,48708,48708,11,48736,48736,11,48764,48764,11,48792,48792,11,48820,48820,11,48848,48848,11,48876,48876,11,48904,48904,11,48932,48932,11,48960,48960,11,48988,48988,11,49016,49016,11,49044,49044,11,49072,49072,11,49100,49100,11,49128,49128,11,49156,49156,11,49184,49184,11,49212,49212,11,49240,49240,11,49268,49268,11,49296,49296,11,49324,49324,11,49352,49352,11,49380,49380,11,49408,49408,11,49436,49436,11,49464,49464,11,49492,49492,11,49520,49520,11,49548,49548,11,49576,49576,11,49604,49604,11,49632,49632,11,49660,49660,11,49688,49688,11,49716,49716,11,49744,49744,11,49772,49772,11,49800,49800,11,49828,49828,11,49856,49856,11,49884,49884,11,49912,49912,11,49940,49940,11,49968,49968,11,49996,49996,11,50024,50024,11,50052,50052,11,50080,50080,11,50108,50108,11,50136,50136,11,50164,50164,11,50192,50192,11,50220,50220,11,50248,50248,11,50276,50276,11,50304,50304,11,50332,50332,11,50360,50360,11,50388,50388,11,50416,50416,11,50444,50444,11,50472,50472,11,50500,50500,11,50528,50528,11,50556,50556,11,50584,50584,11,50612,50612,11,50640,50640,11,50668,50668,11,50696,50696,11,50724,50724,11,50752,50752,11,50780,50780,11,50808,50808,11,50836,50836,11,50864,50864,11,50892,50892,11,50920,50920,11,50948,50948,11,50976,50976,11,51004,51004,11,51032,51032,11,51060,51060,11,51088,51088,11,51116,51116,11,51144,51144,11,51172,51172,11,51200,51200,11,51228,51228,11,51256,51256,11,51284,51284,11,51312,51312,11,51340,51340,11,51368,51368,11,51396,51396,11,51424,51424,11,51452,51452,11,51480,51480,11,51508,51508,11,51536,51536,11,51564,51564,11,51592,51592,11,51620,51620,11,51648,51648,11,51676,51676,11,51704,51704,11,51732,51732,11,51760,51760,11,51788,51788,11,51816,51816,11,51844,51844,11,51872,51872,11,51900,51900,11,51928,51928,11,51956,51956,11,51984,51984,11,52012,52012,11,52040,52040,11,52068,52068,11,52096,52096,11,52124,52124,11,52152,52152,11,52180,52180,11,52208,52208,11,52236,52236,11,52264,52264,11,52292,52292,11,52320,52320,11,52348,52348,11,52376,52376,11,52404,52404,11,52432,52432,11,52460,52460,11,52488,52488,11,52516,52516,11,52544,52544,11,52572,52572,11,52600,52600,11,52628,52628,11,52656,52656,11,52684,52684,11,52712,52712,11,52740,52740,11,52768,52768,11,52796,52796,11,52824,52824,11,52852,52852,11,52880,52880,11,52908,52908,11,52936,52936,11,52964,52964,11,52992,52992,11,53020,53020,11,53048,53048,11,53076,53076,11,53104,53104,11,53132,53132,11,53160,53160,11,53188,53188,11,53216,53216,11,53244,53244,11,53272,53272,11,53300,53300,11,53328,53328,11,53356,53356,11,53384,53384,11,53412,53412,11,53440,53440,11,53468,53468,11,53496,53496,11,53524,53524,11,53552,53552,11,53580,53580,11,53608,53608,11,53636,53636,11,53664,53664,11,53692,53692,11,53720,53720,11,53748,53748,11,53776,53776,11,53804,53804,11,53832,53832,11,53860,53860,11,53888,53888,11,53916,53916,11,53944,53944,11,53972,53972,11,54000,54000,11,54028,54028,11,54056,54056,11,54084,54084,11,54112,54112,11,54140,54140,11,54168,54168,11,54196,54196,11,54224,54224,11,54252,54252,11,54280,54280,11,54308,54308,11,54336,54336,11,54364,54364,11,54392,54392,11,54420,54420,11,54448,54448,11,54476,54476,11,54504,54504,11,54532,54532,11,54560,54560,11,54588,54588,11,54616,54616,11,54644,54644,11,54672,54672,11,54700,54700,11,54728,54728,11,54756,54756,11,54784,54784,11,54812,54812,11,54840,54840,11,54868,54868,11,54896,54896,11,54924,54924,11,54952,54952,11,54980,54980,11,55008,55008,11,55036,55036,11,55064,55064,11,55092,55092,11,55120,55120,11,55148,55148,11,55176,55176,11,55216,55238,9,64286,64286,5,65056,65071,5,65438,65439,5,65529,65531,4,66272,66272,5,68097,68099,5,68108,68111,5,68159,68159,5,68900,68903,5,69446,69456,5,69632,69632,7,69634,69634,7,69744,69744,5,69759,69761,5,69808,69810,7,69815,69816,7,69821,69821,1,69837,69837,1,69927,69931,5,69933,69940,5,70003,70003,5,70018,70018,7,70070,70078,5,70082,70083,1,70094,70094,7,70188,70190,7,70194,70195,7,70197,70197,7,70206,70206,5,70368,70370,7,70400,70401,5,70459,70460,5,70463,70463,7,70465,70468,7,70475,70477,7,70498,70499,7,70512,70516,5,70712,70719,5,70722,70724,5,70726,70726,5,70832,70832,5,70835,70840,5,70842,70842,5,70845,70845,5,70847,70848,5,70850,70851,5,71088,71089,7,71096,71099,7,71102,71102,7,71132,71133,5,71219,71226,5,71229,71229,5,71231,71232,5,71340,71340,7,71342,71343,7,71350,71350,7,71453,71455,5,71462,71462,7,71724,71726,7,71736,71736,7,71984,71984,5,71991,71992,7,71997,71997,7,71999,71999,1,72001,72001,1,72003,72003,5,72148,72151,5,72156,72159,7,72164,72164,7,72243,72248,5,72250,72250,1,72263,72263,5,72279,72280,7,72324,72329,1,72343,72343,7,72751,72751,7,72760,72765,5,72767,72767,5,72873,72873,7,72881,72881,7,72884,72884,7,73009,73014,5,73020,73021,5,73030,73030,1,73098,73102,7,73107,73108,7,73110,73110,7,73459,73460,5,78896,78904,4,92976,92982,5,94033,94087,7,94180,94180,5,113821,113822,5,118528,118573,5,119141,119141,5,119143,119145,5,119150,119154,5,119163,119170,5,119210,119213,5,121344,121398,5,121461,121461,5,121499,121503,5,122880,122886,5,122907,122913,5,122918,122922,5,123566,123566,5,125136,125142,5,126976,126979,14,126981,127182,14,127184,127231,14,127279,127279,14,127344,127345,14,127374,127374,14,127405,127461,14,127489,127490,14,127514,127514,14,127538,127546,14,127561,127567,14,127570,127743,14,127757,127758,14,127760,127760,14,127762,127762,14,127766,127768,14,127770,127770,14,127772,127772,14,127775,127776,14,127778,127779,14,127789,127791,14,127794,127795,14,127798,127798,14,127819,127819,14,127824,127824,14,127868,127868,14,127870,127871,14,127892,127893,14,127896,127896,14,127900,127901,14,127904,127940,14,127942,127942,14,127944,127944,14,127946,127946,14,127951,127955,14,127968,127971,14,127973,127984,14,127987,127987,14,127989,127989,14,127991,127991,14,127995,127999,5,128008,128008,14,128012,128014,14,128017,128018,14,128020,128020,14,128022,128022,14,128042,128042,14,128063,128063,14,128065,128065,14,128101,128101,14,128108,128109,14,128173,128173,14,128182,128183,14,128236,128237,14,128239,128239,14,128245,128245,14,128248,128248,14,128253,128253,14,128255,128258,14,128260,128263,14,128265,128265,14,128277,128277,14,128300,128301,14,128326,128328,14,128331,128334,14,128336,128347,14,128360,128366,14,128369,128370,14,128378,128378,14,128391,128391,14,128394,128397,14,128400,128400,14,128405,128406,14,128420,128420,14,128422,128423,14,128425,128432,14,128435,128443,14,128445,128449,14,128453,128464,14,128468,128475,14,128479,128480,14,128482,128482,14,128484,128487,14,128489,128494,14,128496,128498,14,128500,128505,14,128507,128511,14,128513,128518,14,128521,128525,14,128527,128527,14,128529,128529,14,128533,128533,14,128535,128535,14,128537,128537,14]');
 }
 //#endregion
+/**
+ * Computes the offset after performing a left delete on the given string,
+ * while considering unicode grapheme/emoji rules.
+*/
+function getLeftDeleteOffset(offset, str) {
+    if (offset === 0) {
+        return 0;
+    }
+    // Try to delete emoji part.
+    const emojiOffset = getOffsetBeforeLastEmojiComponent(offset, str);
+    if (emojiOffset !== undefined) {
+        return emojiOffset;
+    }
+    // Otherwise, just skip a single code point.
+    const codePoint = getPrevCodePoint(str, offset);
+    offset -= getUTF16Length(codePoint);
+    return offset;
+}
+function getOffsetBeforeLastEmojiComponent(offset, str) {
+    // See https://www.unicode.org/reports/tr51/tr51-14.html#EBNF_and_Regex for the
+    // structure of emojis.
+    let codePoint = getPrevCodePoint(str, offset);
+    offset -= getUTF16Length(codePoint);
+    // Skip modifiers
+    while ((isEmojiModifier(codePoint) || codePoint === 65039 /* emojiVariantSelector */ || codePoint === 8419 /* enclosingKeyCap */)) {
+        if (offset === 0) {
+            // Cannot skip modifier, no preceding emoji base.
+            return undefined;
+        }
+        codePoint = getPrevCodePoint(str, offset);
+        offset -= getUTF16Length(codePoint);
+    }
+    // Expect base emoji
+    if (!isEmojiImprecise(codePoint)) {
+        // Unexpected code point, not a valid emoji.
+        return undefined;
+    }
+    if (offset >= 0) {
+        // Skip optional ZWJ code points that combine multiple emojis.
+        // In theory, we should check if that ZWJ actually combines multiple emojis
+        // to prevent deleting ZWJs in situations we didn't account for.
+        const optionalZwjCodePoint = getPrevCodePoint(str, offset);
+        if (optionalZwjCodePoint === 8205 /* zwj */) {
+            offset -= getUTF16Length(optionalZwjCodePoint);
+        }
+    }
+    return offset;
+}
+function getUTF16Length(codePoint) {
+    return codePoint >= 65536 /* UNICODE_SUPPLEMENTARY_PLANE_BEGIN */ ? 2 : 1;
+}
+function isEmojiModifier(codePoint) {
+    return 0x1F3FB <= codePoint && codePoint <= 0x1F3FF;
+}
+const noBreakWhitespace = '\xa0';
+class AmbiguousCharacters {
+    static getData() {
+        // Stored as key1, value1, key2, value2, ...
+        return JSON.parse('{\"_common\":[8232,32,8233,32,5760,32,8192,32,8193,32,8194,32,8195,32,8196,32,8197,32,8198,32,8200,32,8201,32,8202,32,8287,32,8199,32,8239,32,2042,95,65101,95,65102,95,65103,95,8208,45,8209,45,8210,45,65112,45,1748,45,8259,45,727,45,8722,45,10134,45,11450,45,1549,44,1643,44,8218,44,184,44,42233,44,894,59,2307,58,2691,58,1417,58,1795,58,1796,58,5868,58,65072,58,6147,58,6153,58,8282,58,1475,58,760,58,42889,58,8758,58,720,58,42237,58,451,33,11601,33,660,63,577,63,2429,63,5038,63,42731,63,119149,46,8228,46,1793,46,1794,46,42510,46,68176,46,1632,46,1776,46,42232,46,1373,96,65287,96,8219,96,8242,96,1370,96,1523,96,8175,96,65344,96,900,96,8189,96,8125,96,8127,96,8190,96,697,96,884,96,712,96,714,96,715,96,756,96,699,96,701,96,700,96,702,96,42892,96,1497,96,2036,96,2037,96,5194,96,5836,96,94033,96,94034,96,65339,40,10088,40,10098,40,12308,40,64830,40,65341,41,10089,41,10099,41,12309,41,64831,41,10100,123,119060,123,10101,125,8270,42,1645,42,8727,42,66335,42,5941,47,8257,47,8725,47,8260,47,9585,47,10187,47,10744,47,119354,47,12755,47,12339,47,11462,47,20031,47,12035,47,65340,92,65128,92,8726,92,10189,92,10741,92,10745,92,119311,92,119355,92,12756,92,20022,92,12034,92,42872,38,708,94,710,94,5869,43,10133,43,66203,43,8249,60,10094,60,706,60,119350,60,5176,60,5810,60,5120,61,11840,61,12448,61,42239,61,8250,62,10095,62,707,62,119351,62,5171,62,94015,62,8275,126,732,126,8128,126,8764,126,120784,50,120794,50,120804,50,120814,50,120824,50,130034,50,42842,50,423,50,1000,50,42564,50,5311,50,42735,50,119302,51,120785,51,120795,51,120805,51,120815,51,120825,51,130035,51,42923,51,540,51,439,51,42858,51,11468,51,1248,51,94011,51,71882,51,120786,52,120796,52,120806,52,120816,52,120826,52,130036,52,5070,52,71855,52,120787,53,120797,53,120807,53,120817,53,120827,53,130037,53,444,53,71867,53,120788,54,120798,54,120808,54,120818,54,120828,54,130038,54,11474,54,5102,54,71893,54,119314,55,120789,55,120799,55,120809,55,120819,55,120829,55,130039,55,66770,55,71878,55,2819,56,2538,56,2666,56,125131,56,120790,56,120800,56,120810,56,120820,56,120830,56,130040,56,547,56,546,56,66330,56,2663,57,2920,57,2541,57,3437,57,120791,57,120801,57,120811,57,120821,57,120831,57,130041,57,42862,57,11466,57,71884,57,71852,57,71894,57,9082,97,65345,97,119834,97,119886,97,119938,97,119990,97,120042,97,120094,97,120146,97,120198,97,120250,97,120302,97,120354,97,120406,97,120458,97,593,97,945,97,120514,97,120572,97,120630,97,120688,97,120746,97,65313,65,119808,65,119860,65,119912,65,119964,65,120016,65,120068,65,120120,65,120172,65,120224,65,120276,65,120328,65,120380,65,120432,65,913,65,120488,65,120546,65,120604,65,120662,65,120720,65,5034,65,5573,65,42222,65,94016,65,66208,65,119835,98,119887,98,119939,98,119991,98,120043,98,120095,98,120147,98,120199,98,120251,98,120303,98,120355,98,120407,98,120459,98,388,98,5071,98,5234,98,5551,98,65314,66,8492,66,119809,66,119861,66,119913,66,120017,66,120069,66,120121,66,120173,66,120225,66,120277,66,120329,66,120381,66,120433,66,42932,66,914,66,120489,66,120547,66,120605,66,120663,66,120721,66,5108,66,5623,66,42192,66,66178,66,66209,66,66305,66,65347,99,8573,99,119836,99,119888,99,119940,99,119992,99,120044,99,120096,99,120148,99,120200,99,120252,99,120304,99,120356,99,120408,99,120460,99,7428,99,1010,99,11429,99,43951,99,66621,99,128844,67,71922,67,71913,67,65315,67,8557,67,8450,67,8493,67,119810,67,119862,67,119914,67,119966,67,120018,67,120174,67,120226,67,120278,67,120330,67,120382,67,120434,67,1017,67,11428,67,5087,67,42202,67,66210,67,66306,67,66581,67,66844,67,8574,100,8518,100,119837,100,119889,100,119941,100,119993,100,120045,100,120097,100,120149,100,120201,100,120253,100,120305,100,120357,100,120409,100,120461,100,1281,100,5095,100,5231,100,42194,100,8558,68,8517,68,119811,68,119863,68,119915,68,119967,68,120019,68,120071,68,120123,68,120175,68,120227,68,120279,68,120331,68,120383,68,120435,68,5024,68,5598,68,5610,68,42195,68,8494,101,65349,101,8495,101,8519,101,119838,101,119890,101,119942,101,120046,101,120098,101,120150,101,120202,101,120254,101,120306,101,120358,101,120410,101,120462,101,43826,101,1213,101,8959,69,65317,69,8496,69,119812,69,119864,69,119916,69,120020,69,120072,69,120124,69,120176,69,120228,69,120280,69,120332,69,120384,69,120436,69,917,69,120492,69,120550,69,120608,69,120666,69,120724,69,11577,69,5036,69,42224,69,71846,69,71854,69,66182,69,119839,102,119891,102,119943,102,119995,102,120047,102,120099,102,120151,102,120203,102,120255,102,120307,102,120359,102,120411,102,120463,102,43829,102,42905,102,383,102,7837,102,1412,102,119315,70,8497,70,119813,70,119865,70,119917,70,120021,70,120073,70,120125,70,120177,70,120229,70,120281,70,120333,70,120385,70,120437,70,42904,70,988,70,120778,70,5556,70,42205,70,71874,70,71842,70,66183,70,66213,70,66853,70,65351,103,8458,103,119840,103,119892,103,119944,103,120048,103,120100,103,120152,103,120204,103,120256,103,120308,103,120360,103,120412,103,120464,103,609,103,7555,103,397,103,1409,103,119814,71,119866,71,119918,71,119970,71,120022,71,120074,71,120126,71,120178,71,120230,71,120282,71,120334,71,120386,71,120438,71,1292,71,5056,71,5107,71,42198,71,65352,104,8462,104,119841,104,119945,104,119997,104,120049,104,120101,104,120153,104,120205,104,120257,104,120309,104,120361,104,120413,104,120465,104,1211,104,1392,104,5058,104,65320,72,8459,72,8460,72,8461,72,119815,72,119867,72,119919,72,120023,72,120179,72,120231,72,120283,72,120335,72,120387,72,120439,72,919,72,120494,72,120552,72,120610,72,120668,72,120726,72,11406,72,5051,72,5500,72,42215,72,66255,72,731,105,9075,105,65353,105,8560,105,8505,105,8520,105,119842,105,119894,105,119946,105,119998,105,120050,105,120102,105,120154,105,120206,105,120258,105,120310,105,120362,105,120414,105,120466,105,120484,105,618,105,617,105,953,105,8126,105,890,105,120522,105,120580,105,120638,105,120696,105,120754,105,1110,105,42567,105,1231,105,43893,105,5029,105,71875,105,65354,106,8521,106,119843,106,119895,106,119947,106,119999,106,120051,106,120103,106,120155,106,120207,106,120259,106,120311,106,120363,106,120415,106,120467,106,1011,106,1112,106,65322,74,119817,74,119869,74,119921,74,119973,74,120025,74,120077,74,120129,74,120181,74,120233,74,120285,74,120337,74,120389,74,120441,74,42930,74,895,74,1032,74,5035,74,5261,74,42201,74,119844,107,119896,107,119948,107,120000,107,120052,107,120104,107,120156,107,120208,107,120260,107,120312,107,120364,107,120416,107,120468,107,8490,75,65323,75,119818,75,119870,75,119922,75,119974,75,120026,75,120078,75,120130,75,120182,75,120234,75,120286,75,120338,75,120390,75,120442,75,922,75,120497,75,120555,75,120613,75,120671,75,120729,75,11412,75,5094,75,5845,75,42199,75,66840,75,1472,124,8739,124,9213,124,65512,124,1633,124,1777,124,66336,124,125127,124,120783,124,120793,124,120803,124,120813,124,120823,124,130033,124,65321,124,8544,124,8464,124,8465,124,119816,124,119868,124,119920,124,120024,124,120128,124,120180,124,120232,124,120284,124,120336,124,120388,124,120440,124,406,124,65356,124,8572,124,8467,124,119845,124,119897,124,119949,124,120001,124,120053,124,120105,124,120157,124,120209,124,120261,124,120313,124,120365,124,120417,124,120469,124,448,124,120496,124,120554,124,120612,124,120670,124,120728,124,11410,124,1030,124,1216,124,1493,124,1503,124,1575,124,126464,124,126592,124,65166,124,65165,124,1994,124,11599,124,5825,124,42226,124,93992,124,66186,124,66313,124,119338,76,8556,76,8466,76,119819,76,119871,76,119923,76,120027,76,120079,76,120131,76,120183,76,120235,76,120287,76,120339,76,120391,76,120443,76,11472,76,5086,76,5290,76,42209,76,93974,76,71843,76,71858,76,66587,76,66854,76,65325,77,8559,77,8499,77,119820,77,119872,77,119924,77,120028,77,120080,77,120132,77,120184,77,120236,77,120288,77,120340,77,120392,77,120444,77,924,77,120499,77,120557,77,120615,77,120673,77,120731,77,1018,77,11416,77,5047,77,5616,77,5846,77,42207,77,66224,77,66321,77,119847,110,119899,110,119951,110,120003,110,120055,110,120107,110,120159,110,120211,110,120263,110,120315,110,120367,110,120419,110,120471,110,1400,110,1404,110,65326,78,8469,78,119821,78,119873,78,119925,78,119977,78,120029,78,120081,78,120185,78,120237,78,120289,78,120341,78,120393,78,120445,78,925,78,120500,78,120558,78,120616,78,120674,78,120732,78,11418,78,42208,78,66835,78,3074,111,3202,111,3330,111,3458,111,2406,111,2662,111,2790,111,3046,111,3174,111,3302,111,3430,111,3664,111,3792,111,4160,111,1637,111,1781,111,65359,111,8500,111,119848,111,119900,111,119952,111,120056,111,120108,111,120160,111,120212,111,120264,111,120316,111,120368,111,120420,111,120472,111,7439,111,7441,111,43837,111,959,111,120528,111,120586,111,120644,111,120702,111,120760,111,963,111,120532,111,120590,111,120648,111,120706,111,120764,111,11423,111,4351,111,1413,111,1505,111,1607,111,126500,111,126564,111,126596,111,65259,111,65260,111,65258,111,65257,111,1726,111,64428,111,64429,111,64427,111,64426,111,1729,111,64424,111,64425,111,64423,111,64422,111,1749,111,3360,111,4125,111,66794,111,71880,111,71895,111,66604,111,1984,79,2534,79,2918,79,12295,79,70864,79,71904,79,120782,79,120792,79,120802,79,120812,79,120822,79,130032,79,65327,79,119822,79,119874,79,119926,79,119978,79,120030,79,120082,79,120134,79,120186,79,120238,79,120290,79,120342,79,120394,79,120446,79,927,79,120502,79,120560,79,120618,79,120676,79,120734,79,11422,79,1365,79,11604,79,4816,79,2848,79,66754,79,42227,79,71861,79,66194,79,66219,79,66564,79,66838,79,9076,112,65360,112,119849,112,119901,112,119953,112,120005,112,120057,112,120109,112,120161,112,120213,112,120265,112,120317,112,120369,112,120421,112,120473,112,961,112,120530,112,120544,112,120588,112,120602,112,120646,112,120660,112,120704,112,120718,112,120762,112,120776,112,11427,112,65328,80,8473,80,119823,80,119875,80,119927,80,119979,80,120031,80,120083,80,120187,80,120239,80,120291,80,120343,80,120395,80,120447,80,929,80,120504,80,120562,80,120620,80,120678,80,120736,80,11426,80,5090,80,5229,80,42193,80,66197,80,119850,113,119902,113,119954,113,120006,113,120058,113,120110,113,120162,113,120214,113,120266,113,120318,113,120370,113,120422,113,120474,113,1307,113,1379,113,1382,113,8474,81,119824,81,119876,81,119928,81,119980,81,120032,81,120084,81,120188,81,120240,81,120292,81,120344,81,120396,81,120448,81,11605,81,119851,114,119903,114,119955,114,120007,114,120059,114,120111,114,120163,114,120215,114,120267,114,120319,114,120371,114,120423,114,120475,114,43847,114,43848,114,7462,114,11397,114,43905,114,119318,82,8475,82,8476,82,8477,82,119825,82,119877,82,119929,82,120033,82,120189,82,120241,82,120293,82,120345,82,120397,82,120449,82,422,82,5025,82,5074,82,66740,82,5511,82,42211,82,94005,82,65363,115,119852,115,119904,115,119956,115,120008,115,120060,115,120112,115,120164,115,120216,115,120268,115,120320,115,120372,115,120424,115,120476,115,42801,115,445,115,1109,115,43946,115,71873,115,66632,115,65331,83,119826,83,119878,83,119930,83,119982,83,120034,83,120086,83,120138,83,120190,83,120242,83,120294,83,120346,83,120398,83,120450,83,1029,83,1359,83,5077,83,5082,83,42210,83,94010,83,66198,83,66592,83,119853,116,119905,116,119957,116,120009,116,120061,116,120113,116,120165,116,120217,116,120269,116,120321,116,120373,116,120425,116,120477,116,8868,84,10201,84,128872,84,65332,84,119827,84,119879,84,119931,84,119983,84,120035,84,120087,84,120139,84,120191,84,120243,84,120295,84,120347,84,120399,84,120451,84,932,84,120507,84,120565,84,120623,84,120681,84,120739,84,11430,84,5026,84,42196,84,93962,84,71868,84,66199,84,66225,84,66325,84,119854,117,119906,117,119958,117,120010,117,120062,117,120114,117,120166,117,120218,117,120270,117,120322,117,120374,117,120426,117,120478,117,42911,117,7452,117,43854,117,43858,117,651,117,965,117,120534,117,120592,117,120650,117,120708,117,120766,117,1405,117,66806,117,71896,117,8746,85,8899,85,119828,85,119880,85,119932,85,119984,85,120036,85,120088,85,120140,85,120192,85,120244,85,120296,85,120348,85,120400,85,120452,85,1357,85,4608,85,66766,85,5196,85,42228,85,94018,85,71864,85,8744,118,8897,118,65366,118,8564,118,119855,118,119907,118,119959,118,120011,118,120063,118,120115,118,120167,118,120219,118,120271,118,120323,118,120375,118,120427,118,120479,118,7456,118,957,118,120526,118,120584,118,120642,118,120700,118,120758,118,1141,118,1496,118,71430,118,43945,118,71872,118,119309,86,1639,86,1783,86,8548,86,119829,86,119881,86,119933,86,119985,86,120037,86,120089,86,120141,86,120193,86,120245,86,120297,86,120349,86,120401,86,120453,86,1140,86,11576,86,5081,86,5167,86,42719,86,42214,86,93960,86,71840,86,66845,86,623,119,119856,119,119908,119,119960,119,120012,119,120064,119,120116,119,120168,119,120220,119,120272,119,120324,119,120376,119,120428,119,120480,119,7457,119,1121,119,1309,119,1377,119,71434,119,71438,119,71439,119,43907,119,71919,87,71910,87,119830,87,119882,87,119934,87,119986,87,120038,87,120090,87,120142,87,120194,87,120246,87,120298,87,120350,87,120402,87,120454,87,1308,87,5043,87,5076,87,42218,87,5742,120,10539,120,10540,120,10799,120,65368,120,8569,120,119857,120,119909,120,119961,120,120013,120,120065,120,120117,120,120169,120,120221,120,120273,120,120325,120,120377,120,120429,120,120481,120,5441,120,5501,120,5741,88,9587,88,66338,88,71916,88,65336,88,8553,88,119831,88,119883,88,119935,88,119987,88,120039,88,120091,88,120143,88,120195,88,120247,88,120299,88,120351,88,120403,88,120455,88,42931,88,935,88,120510,88,120568,88,120626,88,120684,88,120742,88,11436,88,11613,88,5815,88,42219,88,66192,88,66228,88,66327,88,66855,88,611,121,7564,121,65369,121,119858,121,119910,121,119962,121,120014,121,120066,121,120118,121,120170,121,120222,121,120274,121,120326,121,120378,121,120430,121,120482,121,655,121,7935,121,43866,121,947,121,8509,121,120516,121,120574,121,120632,121,120690,121,120748,121,1199,121,4327,121,71900,121,65337,89,119832,89,119884,89,119936,89,119988,89,120040,89,120092,89,120144,89,120196,89,120248,89,120300,89,120352,89,120404,89,120456,89,933,89,978,89,120508,89,120566,89,120624,89,120682,89,120740,89,11432,89,1198,89,5033,89,5053,89,42220,89,94019,89,71844,89,66226,89,119859,122,119911,122,119963,122,120015,122,120067,122,120119,122,120171,122,120223,122,120275,122,120327,122,120379,122,120431,122,120483,122,7458,122,43923,122,71876,122,66293,90,71909,90,65338,90,8484,90,8488,90,119833,90,119885,90,119937,90,119989,90,120041,90,120197,90,120249,90,120301,90,120353,90,120405,90,120457,90,918,90,120493,90,120551,90,120609,90,120667,90,120725,90,5059,90,42204,90,71849,90],\"_default\":[160,32,8211,45,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"cs\":[65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,1093,120,1061,88,1091,121,1059,89],\"de\":[65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,1093,120,1061,88,1091,121,1059,89],\"es\":[8211,45,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"fr\":[65306,58,65281,33,8216,96,8245,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"it\":[160,32,8211,45,65306,58,65281,33,8216,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"ja\":[8211,45,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"ko\":[8211,45,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"pl\":[65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"pt-BR\":[65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"qps-ploc\":[160,32,8211,45,65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"ru\":[65306,58,65281,33,8216,96,8217,96,8245,96,180,96,12494,47,305,105,921,124,1009,112,215,120],\"tr\":[160,32,8211,45,65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"zh-hans\":[65306,58,65281,33,8245,96,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89],\"zh-hant\":[8211,45,180,96,12494,47,1047,51,1073,54,1072,97,1040,65,1068,98,1042,66,1089,99,1057,67,1077,101,1045,69,1053,72,305,105,1050,75,921,124,1052,77,1086,111,1054,79,1009,112,1088,112,1056,80,1075,114,1058,84,215,120,1093,120,1061,88,1091,121,1059,89]}');
+    }
+    static getConfusablesForCurrentLocale() {
+        if (!AmbiguousCharacters.map) {
+            const data = AmbiguousCharacters.getData();
+            let locale = platform_locale;
+            if (!locale || !(locale in data)) {
+                locale = language;
+            }
+            if (!locale || !(locale in data)) {
+                locale = '_default';
+            }
+            function arrayToMap(arr) {
+                const result = new Map();
+                for (let i = 0; i < arr.length; i += 2) {
+                    result.set(arr[i], arr[i + 1]);
+                }
+                return result;
+            }
+            const set = arrayToMap(data['_common']);
+            const additionalConfusables = arrayToMap(data[locale]);
+            for (const [codePoint, originalCodePoint] of additionalConfusables) {
+                set.set(codePoint, originalCodePoint);
+            }
+            AmbiguousCharacters.map = set;
+        }
+        return AmbiguousCharacters.map;
+    }
+    static isAmbiguous(codePoint) {
+        return AmbiguousCharacters.getConfusablesForCurrentLocale().has(codePoint);
+    }
+    /**
+     * Returns the non basic ASCII code point that the given code point can be confused,
+     * or undefined if such code point does note exist.
+    */
+    static getPrimaryConfusable(codePoint) {
+        return AmbiguousCharacters.getConfusablesForCurrentLocale().get(codePoint);
+    }
+    static getPrimaryConfusableCodePoints() {
+        return new Set(AmbiguousCharacters.getConfusablesForCurrentLocale().keys());
+    }
+}
+class InvisibleCharacters {
+    static getRawData() {
+        return JSON.parse('[9,10,11,12,13,32,127,160,173,847,1564,4447,4448,6068,6069,6155,6156,6157,6158,7355,7356,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8203,8204,8205,8206,8207,8234,8235,8236,8237,8238,8239,8287,8288,8289,8290,8291,8292,8293,8294,8295,8296,8297,8298,8299,8300,8301,8302,8303,10240,12288,12644,65024,65025,65026,65027,65028,65029,65030,65031,65032,65033,65034,65035,65036,65037,65038,65039,65279,65440,65520,65521,65522,65523,65524,65525,65526,65527,65528,65532,78844,119155,119156,119157,119158,119159,119160,119161,119162,917504,917505,917506,917507,917508,917509,917510,917511,917512,917513,917514,917515,917516,917517,917518,917519,917520,917521,917522,917523,917524,917525,917526,917527,917528,917529,917530,917531,917532,917533,917534,917535,917536,917537,917538,917539,917540,917541,917542,917543,917544,917545,917546,917547,917548,917549,917550,917551,917552,917553,917554,917555,917556,917557,917558,917559,917560,917561,917562,917563,917564,917565,917566,917567,917568,917569,917570,917571,917572,917573,917574,917575,917576,917577,917578,917579,917580,917581,917582,917583,917584,917585,917586,917587,917588,917589,917590,917591,917592,917593,917594,917595,917596,917597,917598,917599,917600,917601,917602,917603,917604,917605,917606,917607,917608,917609,917610,917611,917612,917613,917614,917615,917616,917617,917618,917619,917620,917621,917622,917623,917624,917625,917626,917627,917628,917629,917630,917631,917760,917761,917762,917763,917764,917765,917766,917767,917768,917769,917770,917771,917772,917773,917774,917775,917776,917777,917778,917779,917780,917781,917782,917783,917784,917785,917786,917787,917788,917789,917790,917791,917792,917793,917794,917795,917796,917797,917798,917799,917800,917801,917802,917803,917804,917805,917806,917807,917808,917809,917810,917811,917812,917813,917814,917815,917816,917817,917818,917819,917820,917821,917822,917823,917824,917825,917826,917827,917828,917829,917830,917831,917832,917833,917834,917835,917836,917837,917838,917839,917840,917841,917842,917843,917844,917845,917846,917847,917848,917849,917850,917851,917852,917853,917854,917855,917856,917857,917858,917859,917860,917861,917862,917863,917864,917865,917866,917867,917868,917869,917870,917871,917872,917873,917874,917875,917876,917877,917878,917879,917880,917881,917882,917883,917884,917885,917886,917887,917888,917889,917890,917891,917892,917893,917894,917895,917896,917897,917898,917899,917900,917901,917902,917903,917904,917905,917906,917907,917908,917909,917910,917911,917912,917913,917914,917915,917916,917917,917918,917919,917920,917921,917922,917923,917924,917925,917926,917927,917928,917929,917930,917931,917932,917933,917934,917935,917936,917937,917938,917939,917940,917941,917942,917943,917944,917945,917946,917947,917948,917949,917950,917951,917952,917953,917954,917955,917956,917957,917958,917959,917960,917961,917962,917963,917964,917965,917966,917967,917968,917969,917970,917971,917972,917973,917974,917975,917976,917977,917978,917979,917980,917981,917982,917983,917984,917985,917986,917987,917988,917989,917990,917991,917992,917993,917994,917995,917996,917997,917998,917999]');
+    }
+    static getData() {
+        if (!this._data) {
+            this._data = new Set(InvisibleCharacters.getRawData());
+        }
+        return this._data;
+    }
+    static isInvisibleCharacter(codePoint) {
+        return InvisibleCharacters.getData().has(codePoint);
+    }
+    static get codePoints() {
+        return InvisibleCharacters.getData();
+    }
+}
+InvisibleCharacters._data = undefined;
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/worker/simpleWorker.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+
+
+
+
+
+const INITIALIZE = '$initialize';
+let webWorkerWarningLogged = false;
+function logOnceWebWorkerWarning(err) {
+    if (!isWeb) {
+        // running tests
+        return;
+    }
+    if (!webWorkerWarningLogged) {
+        webWorkerWarningLogged = true;
+        console.warn('Could not create web worker(s). Falling back to loading web worker code in main thread, which might cause UI freezes. Please see https://github.com/microsoft/monaco-editor#faq');
+    }
+    console.warn(err.message);
+}
+class RequestMessage {
+    constructor(vsWorker, req, method, args) {
+        this.vsWorker = vsWorker;
+        this.req = req;
+        this.method = method;
+        this.args = args;
+        this.type = 0 /* Request */;
+    }
+}
+class ReplyMessage {
+    constructor(vsWorker, seq, res, err) {
+        this.vsWorker = vsWorker;
+        this.seq = seq;
+        this.res = res;
+        this.err = err;
+        this.type = 1 /* Reply */;
+    }
+}
+class SubscribeEventMessage {
+    constructor(vsWorker, req, eventName, arg) {
+        this.vsWorker = vsWorker;
+        this.req = req;
+        this.eventName = eventName;
+        this.arg = arg;
+        this.type = 2 /* SubscribeEvent */;
+    }
+}
+class EventMessage {
+    constructor(vsWorker, req, event) {
+        this.vsWorker = vsWorker;
+        this.req = req;
+        this.event = event;
+        this.type = 3 /* Event */;
+    }
+}
+class UnsubscribeEventMessage {
+    constructor(vsWorker, req) {
+        this.vsWorker = vsWorker;
+        this.req = req;
+        this.type = 4 /* UnsubscribeEvent */;
+    }
+}
+class SimpleWorkerProtocol {
+    constructor(handler) {
+        this._workerId = -1;
+        this._handler = handler;
+        this._lastSentReq = 0;
+        this._pendingReplies = Object.create(null);
+        this._pendingEmitters = new Map();
+        this._pendingEvents = new Map();
+    }
+    setWorkerId(workerId) {
+        this._workerId = workerId;
+    }
+    sendMessage(method, args) {
+        const req = String(++this._lastSentReq);
+        return new Promise((resolve, reject) => {
+            this._pendingReplies[req] = {
+                resolve: resolve,
+                reject: reject
+            };
+            this._send(new RequestMessage(this._workerId, req, method, args));
+        });
+    }
+    listen(eventName, arg) {
+        let req = null;
+        const emitter = new Emitter({
+            onFirstListenerAdd: () => {
+                req = String(++this._lastSentReq);
+                this._pendingEmitters.set(req, emitter);
+                this._send(new SubscribeEventMessage(this._workerId, req, eventName, arg));
+            },
+            onLastListenerRemove: () => {
+                this._pendingEmitters.delete(req);
+                this._send(new UnsubscribeEventMessage(this._workerId, req));
+                req = null;
+            }
+        });
+        return emitter.event;
+    }
+    handleMessage(message) {
+        if (!message || !message.vsWorker) {
+            return;
+        }
+        if (this._workerId !== -1 && message.vsWorker !== this._workerId) {
+            return;
+        }
+        this._handleMessage(message);
+    }
+    _handleMessage(msg) {
+        switch (msg.type) {
+            case 1 /* Reply */:
+                return this._handleReplyMessage(msg);
+            case 0 /* Request */:
+                return this._handleRequestMessage(msg);
+            case 2 /* SubscribeEvent */:
+                return this._handleSubscribeEventMessage(msg);
+            case 3 /* Event */:
+                return this._handleEventMessage(msg);
+            case 4 /* UnsubscribeEvent */:
+                return this._handleUnsubscribeEventMessage(msg);
+        }
+    }
+    _handleReplyMessage(replyMessage) {
+        if (!this._pendingReplies[replyMessage.seq]) {
+            console.warn('Got reply to unknown seq');
+            return;
+        }
+        let reply = this._pendingReplies[replyMessage.seq];
+        delete this._pendingReplies[replyMessage.seq];
+        if (replyMessage.err) {
+            let err = replyMessage.err;
+            if (replyMessage.err.$isError) {
+                err = new Error();
+                err.name = replyMessage.err.name;
+                err.message = replyMessage.err.message;
+                err.stack = replyMessage.err.stack;
+            }
+            reply.reject(err);
+            return;
+        }
+        reply.resolve(replyMessage.res);
+    }
+    _handleRequestMessage(requestMessage) {
+        let req = requestMessage.req;
+        let result = this._handler.handleMessage(requestMessage.method, requestMessage.args);
+        result.then((r) => {
+            this._send(new ReplyMessage(this._workerId, req, r, undefined));
+        }, (e) => {
+            if (e.detail instanceof Error) {
+                // Loading errors have a detail property that points to the actual error
+                e.detail = transformErrorForSerialization(e.detail);
+            }
+            this._send(new ReplyMessage(this._workerId, req, undefined, transformErrorForSerialization(e)));
+        });
+    }
+    _handleSubscribeEventMessage(msg) {
+        const req = msg.req;
+        const disposable = this._handler.handleEvent(msg.eventName, msg.arg)((event) => {
+            this._send(new EventMessage(this._workerId, req, event));
+        });
+        this._pendingEvents.set(req, disposable);
+    }
+    _handleEventMessage(msg) {
+        if (!this._pendingEmitters.has(msg.req)) {
+            console.warn('Got event for unknown req');
+            return;
+        }
+        this._pendingEmitters.get(msg.req).fire(msg.event);
+    }
+    _handleUnsubscribeEventMessage(msg) {
+        if (!this._pendingEvents.has(msg.req)) {
+            console.warn('Got unsubscribe for unknown req');
+            return;
+        }
+        this._pendingEvents.get(msg.req).dispose();
+        this._pendingEvents.delete(msg.req);
+    }
+    _send(msg) {
+        let transfer = [];
+        if (msg.type === 0 /* Request */) {
+            for (let i = 0; i < msg.args.length; i++) {
+                if (msg.args[i] instanceof ArrayBuffer) {
+                    transfer.push(msg.args[i]);
+                }
+            }
+        }
+        else if (msg.type === 1 /* Reply */) {
+            if (msg.res instanceof ArrayBuffer) {
+                transfer.push(msg.res);
+            }
+        }
+        this._handler.sendMessage(msg, transfer);
+    }
+}
+/**
+ * Main thread side
+ */
+class SimpleWorkerClient extends (/* unused pure expression or super */ null && (Disposable)) {
+    constructor(workerFactory, moduleId, host) {
+        super();
+        let lazyProxyReject = null;
+        this._worker = this._register(workerFactory.create('vs/base/common/worker/simpleWorker', (msg) => {
+            this._protocol.handleMessage(msg);
+        }, (err) => {
+            // in Firefox, web workers fail lazily :(
+            // we will reject the proxy
+            if (lazyProxyReject) {
+                lazyProxyReject(err);
+            }
+        }));
+        this._protocol = new SimpleWorkerProtocol({
+            sendMessage: (msg, transfer) => {
+                this._worker.postMessage(msg, transfer);
+            },
+            handleMessage: (method, args) => {
+                if (typeof host[method] !== 'function') {
+                    return Promise.reject(new Error('Missing method ' + method + ' on main thread host.'));
+                }
+                try {
+                    return Promise.resolve(host[method].apply(host, args));
+                }
+                catch (e) {
+                    return Promise.reject(e);
+                }
+            },
+            handleEvent: (eventName, arg) => {
+                if (propertyIsDynamicEvent(eventName)) {
+                    const event = host[eventName].call(host, arg);
+                    if (typeof event !== 'function') {
+                        throw new Error(`Missing dynamic event ${eventName} on main thread host.`);
+                    }
+                    return event;
+                }
+                if (propertyIsEvent(eventName)) {
+                    const event = host[eventName];
+                    if (typeof event !== 'function') {
+                        throw new Error(`Missing event ${eventName} on main thread host.`);
+                    }
+                    return event;
+                }
+                throw new Error(`Malformed event name ${eventName}`);
+            }
+        });
+        this._protocol.setWorkerId(this._worker.getId());
+        // Gather loader configuration
+        let loaderConfiguration = null;
+        if (typeof globals.require !== 'undefined' && typeof globals.require.getConfig === 'function') {
+            // Get the configuration from the Monaco AMD Loader
+            loaderConfiguration = globals.require.getConfig();
+        }
+        else if (typeof globals.requirejs !== 'undefined') {
+            // Get the configuration from requirejs
+            loaderConfiguration = globals.requirejs.s.contexts._.config;
+        }
+        const hostMethods = types.getAllMethodNames(host);
+        // Send initialize message
+        this._onModuleLoaded = this._protocol.sendMessage(INITIALIZE, [
+            this._worker.getId(),
+            JSON.parse(JSON.stringify(loaderConfiguration)),
+            moduleId,
+            hostMethods,
+        ]);
+        // Create proxy to loaded code
+        const proxyMethodRequest = (method, args) => {
+            return this._request(method, args);
+        };
+        const proxyListen = (eventName, arg) => {
+            return this._protocol.listen(eventName, arg);
+        };
+        this._lazyProxy = new Promise((resolve, reject) => {
+            lazyProxyReject = reject;
+            this._onModuleLoaded.then((availableMethods) => {
+                resolve(simpleWorker_createProxyObject(availableMethods, proxyMethodRequest, proxyListen));
+            }, (e) => {
+                reject(e);
+                this._onError('Worker failed to load ' + moduleId, e);
+            });
+        });
+    }
+    getProxyObject() {
+        return this._lazyProxy;
+    }
+    _request(method, args) {
+        return new Promise((resolve, reject) => {
+            this._onModuleLoaded.then(() => {
+                this._protocol.sendMessage(method, args).then(resolve, reject);
+            }, reject);
+        });
+    }
+    _onError(message, error) {
+        console.error(message);
+        console.info(error);
+    }
+}
+function propertyIsEvent(name) {
+    // Assume a property is an event if it has a form of "onSomething"
+    return name[0] === 'o' && name[1] === 'n' && isUpperAsciiLetter(name.charCodeAt(2));
+}
+function propertyIsDynamicEvent(name) {
+    // Assume a property is a dynamic event (a method that returns an event) if it has a form of "onDynamicSomething"
+    return /^onDynamic/.test(name) && isUpperAsciiLetter(name.charCodeAt(9));
+}
+function simpleWorker_createProxyObject(methodNames, invoke, proxyListen) {
+    const createProxyMethod = (method) => {
+        return function () {
+            const args = Array.prototype.slice.call(arguments, 0);
+            return invoke(method, args);
+        };
+    };
+    const createProxyDynamicEvent = (eventName) => {
+        return function (arg) {
+            return proxyListen(eventName, arg);
+        };
+    };
+    let result = {};
+    for (const methodName of methodNames) {
+        if (propertyIsDynamicEvent(methodName)) {
+            result[methodName] = createProxyDynamicEvent(methodName);
+            continue;
+        }
+        if (propertyIsEvent(methodName)) {
+            result[methodName] = proxyListen(methodName, undefined);
+            continue;
+        }
+        result[methodName] = createProxyMethod(methodName);
+    }
+    return result;
+}
+/**
+ * Worker side
+ */
+class SimpleWorkerServer {
+    constructor(postMessage, requestHandlerFactory) {
+        this._requestHandlerFactory = requestHandlerFactory;
+        this._requestHandler = null;
+        this._protocol = new SimpleWorkerProtocol({
+            sendMessage: (msg, transfer) => {
+                postMessage(msg, transfer);
+            },
+            handleMessage: (method, args) => this._handleMessage(method, args),
+            handleEvent: (eventName, arg) => this._handleEvent(eventName, arg)
+        });
+    }
+    onmessage(msg) {
+        this._protocol.handleMessage(msg);
+    }
+    _handleMessage(method, args) {
+        if (method === INITIALIZE) {
+            return this.initialize(args[0], args[1], args[2], args[3]);
+        }
+        if (!this._requestHandler || typeof this._requestHandler[method] !== 'function') {
+            return Promise.reject(new Error('Missing requestHandler or method: ' + method));
+        }
+        try {
+            return Promise.resolve(this._requestHandler[method].apply(this._requestHandler, args));
+        }
+        catch (e) {
+            return Promise.reject(e);
+        }
+    }
+    _handleEvent(eventName, arg) {
+        if (!this._requestHandler) {
+            throw new Error(`Missing requestHandler`);
+        }
+        if (propertyIsDynamicEvent(eventName)) {
+            const event = this._requestHandler[eventName].call(this._requestHandler, arg);
+            if (typeof event !== 'function') {
+                throw new Error(`Missing dynamic event ${eventName} on request handler.`);
+            }
+            return event;
+        }
+        if (propertyIsEvent(eventName)) {
+            const event = this._requestHandler[eventName];
+            if (typeof event !== 'function') {
+                throw new Error(`Missing event ${eventName} on request handler.`);
+            }
+            return event;
+        }
+        throw new Error(`Malformed event name ${eventName}`);
+    }
+    initialize(workerId, loaderConfig, moduleId, hostMethods) {
+        this._protocol.setWorkerId(workerId);
+        const proxyMethodRequest = (method, args) => {
+            return this._protocol.sendMessage(method, args);
+        };
+        const proxyListen = (eventName, arg) => {
+            return this._protocol.listen(eventName, arg);
+        };
+        const hostProxy = simpleWorker_createProxyObject(hostMethods, proxyMethodRequest, proxyListen);
+        if (this._requestHandlerFactory) {
+            // static request handler
+            this._requestHandler = this._requestHandlerFactory(hostProxy);
+            return Promise.resolve(getAllMethodNames(this._requestHandler));
+        }
+        if (loaderConfig) {
+            // Remove 'baseUrl', handling it is beyond scope for now
+            if (typeof loaderConfig.baseUrl !== 'undefined') {
+                delete loaderConfig['baseUrl'];
+            }
+            if (typeof loaderConfig.paths !== 'undefined') {
+                if (typeof loaderConfig.paths.vs !== 'undefined') {
+                    delete loaderConfig.paths['vs'];
+                }
+            }
+            if (typeof loaderConfig.trustedTypesPolicy !== undefined) {
+                // don't use, it has been destroyed during serialize
+                delete loaderConfig['trustedTypesPolicy'];
+            }
+            // Since this is in a web worker, enable catching errors
+            loaderConfig.catchError = true;
+            platform_globals.require.config(loaderConfig);
+        }
+        return new Promise((resolve, reject) => {
+            // Use the global require to be sure to get the global config
+            // ESM-comment-begin
+            // 			const req = (globals.require || require);
+            // ESM-comment-end
+            // ESM-uncomment-begin
+            const req = platform_globals.require;
+            // ESM-uncomment-end
+            req([moduleId], (module) => {
+                this._requestHandler = module.create(hostProxy);
+                if (!this._requestHandler) {
+                    reject(new Error(`No RequestHandler!`));
+                    return;
+                }
+                resolve(getAllMethodNames(this._requestHandler));
+            }, reject);
+        });
+    }
+}
+/**
+ * Called on the worker side
+ */
+function create(postMessage) {
+    return new SimpleWorkerServer(postMessage, null);
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/diff/diffChange.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+/**
+ * Represents information about a specific difference between two sequences.
+ */
+class DiffChange {
+    /**
+     * Constructs a new DiffChange with the given sequence information
+     * and content.
+     */
+    constructor(originalStart, originalLength, modifiedStart, modifiedLength) {
+        //Debug.Assert(originalLength > 0 || modifiedLength > 0, "originalLength and modifiedLength cannot both be <= 0");
+        this.originalStart = originalStart;
+        this.originalLength = originalLength;
+        this.modifiedStart = modifiedStart;
+        this.modifiedLength = modifiedLength;
+    }
+    /**
+     * The end point (exclusive) of the change in the original sequence.
+     */
+    getOriginalEnd() {
+        return this.originalStart + this.originalLength;
+    }
+    /**
+     * The end point (exclusive) of the change in the modified sequence.
+     */
+    getModifiedEnd() {
+        return this.modifiedStart + this.modifiedLength;
+    }
+}
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/hash.js
 /*---------------------------------------------------------------------------------------------
@@ -2040,8 +2900,11 @@ function leftPad(value, length, char = '0') {
     }
     return value;
 }
-function toHexString(value, bitsize = 32) {
-    return leftPad((value >>> 0).toString(16), bitsize / 4);
+function toHexString(bufferOrValue, bitsize = 32) {
+    if (bufferOrValue instanceof ArrayBuffer) {
+        return Array.from(new Uint8Array(bufferOrValue)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    return leftPad((bufferOrValue >>> 0).toString(16), bitsize / 4);
 }
 /**
  * A SHA1 implementation that works with strings and does not allocate.
@@ -2284,7 +3147,7 @@ class MyArray {
  * A utility class which helps to create the set of DiffChanges from
  * a difference operation. This class accepts original DiffElements and
  * modified DiffElements that are involved in a particular change. The
- * MarktNextChange() method can be called to mark the separation between
+ * MarkNextChange() method can be called to mark the separation between
  * distinct changes. At the end, the Changes property can be called to retrieve
  * the constructed changes.
  */
@@ -2372,6 +3235,8 @@ class LcsDiff {
      */
     constructor(originalSequence, modifiedSequence, continueProcessingPredicate = null) {
         this.ContinueProcessingPredicate = continueProcessingPredicate;
+        this._originalSequence = originalSequence;
+        this._modifiedSequence = modifiedSequence;
         const [originalStringElements, originalElementsOrHash, originalHasStrings] = LcsDiff._getElements(originalSequence);
         const [modifiedStringElements, modifiedElementsOrHash, modifiedHasStrings] = LcsDiff._getElements(modifiedSequence);
         this._hasStrings = (originalHasStrings && modifiedHasStrings);
@@ -2404,6 +3269,20 @@ class LcsDiff {
             return false;
         }
         return (this._hasStrings ? this._originalStringElements[originalIndex] === this._modifiedStringElements[newIndex] : true);
+    }
+    ElementsAreStrictEqual(originalIndex, newIndex) {
+        if (!this.ElementsAreEqual(originalIndex, newIndex)) {
+            return false;
+        }
+        const originalElement = LcsDiff._getStrictElement(this._originalSequence, originalIndex);
+        const modifiedElement = LcsDiff._getStrictElement(this._modifiedSequence, newIndex);
+        return (originalElement === modifiedElement);
+    }
+    static _getStrictElement(sequence, index) {
+        if (typeof sequence.getStrictElement === 'function') {
+            return sequence.getStrictElement(index);
+        }
+        return null;
     }
     OriginalElementsAreEqual(index1, index2) {
         if (this._originalElementsOrHash[index1] !== this._originalElementsOrHash[index2]) {
@@ -2503,7 +3382,7 @@ class LcsDiff {
                 rightChanges = this.ComputeDiffRecursive(midOriginal + 1, originalEnd, midModified + 1, modifiedEnd, quitEarlyArr);
             }
             else {
-                // We did't have time to finish the first half, so we don't have time to compute this half.
+                // We didn't have time to finish the first half, so we don't have time to compute this half.
                 // Consider the entire rest of the sequence different.
                 rightChanges = [
                     new DiffChange(midOriginal + 1, originalEnd - (midOriginal + 1) + 1, midModified + 1, modifiedEnd - (midModified + 1) + 1)
@@ -2754,7 +3633,7 @@ class LcsDiff {
                 }
                 else {
                     // We didn't actually remember enough of the history.
-                    //Since we are quiting the diff early, we need to shift back the originalStart and modified start
+                    //Since we are quitting the diff early, we need to shift back the originalStart and modified start
                     //back into the boundary limits since we decremented their value above beyond the boundary limit.
                     originalStart++;
                     modifiedStart++;
@@ -2839,10 +3718,16 @@ class LcsDiff {
             const modifiedStop = (i < changes.length - 1) ? changes[i + 1].modifiedStart : this._modifiedElementsOrHash.length;
             const checkOriginal = change.originalLength > 0;
             const checkModified = change.modifiedLength > 0;
-            while (change.originalStart + change.originalLength < originalStop &&
-                change.modifiedStart + change.modifiedLength < modifiedStop &&
-                (!checkOriginal || this.OriginalElementsAreEqual(change.originalStart, change.originalStart + change.originalLength)) &&
-                (!checkModified || this.ModifiedElementsAreEqual(change.modifiedStart, change.modifiedStart + change.modifiedLength))) {
+            while (change.originalStart + change.originalLength < originalStop
+                && change.modifiedStart + change.modifiedLength < modifiedStop
+                && (!checkOriginal || this.OriginalElementsAreEqual(change.originalStart, change.originalStart + change.originalLength))
+                && (!checkModified || this.ModifiedElementsAreEqual(change.modifiedStart, change.modifiedStart + change.modifiedLength))) {
+                const startStrictEqual = this.ElementsAreStrictEqual(change.originalStart, change.modifiedStart);
+                const endStrictEqual = this.ElementsAreStrictEqual(change.originalStart + change.originalLength, change.modifiedStart + change.modifiedLength);
+                if (endStrictEqual && !startStrictEqual) {
+                    // moving the change down would create an equal change, but the elements are not strict equal
+                    break;
+                }
                 change.originalStart++;
                 change.modifiedStart++;
             }
@@ -2861,12 +3746,8 @@ class LcsDiff {
             let modifiedStop = 0;
             if (i > 0) {
                 const prevChange = changes[i - 1];
-                if (prevChange.originalLength > 0) {
-                    originalStop = prevChange.originalStart + prevChange.originalLength;
-                }
-                if (prevChange.modifiedLength > 0) {
-                    modifiedStop = prevChange.modifiedStart + prevChange.modifiedLength;
-                }
+                originalStop = prevChange.originalStart + prevChange.originalLength;
+                modifiedStop = prevChange.modifiedStart + prevChange.modifiedLength;
             }
             const checkOriginal = change.originalLength > 0;
             const checkModified = change.modifiedLength > 0;
@@ -2884,7 +3765,9 @@ class LcsDiff {
                 if (checkModified && !this.ModifiedElementsAreEqual(modifiedStart, modifiedStart + change.modifiedLength)) {
                     break;
                 }
-                const score = this._boundaryScore(originalStart, change.originalLength, modifiedStart, change.modifiedLength);
+                const touchingPreviousChange = (originalStart === originalStop && modifiedStart === modifiedStop);
+                const score = ((touchingPreviousChange ? 5 : 0)
+                    + this._boundaryScore(originalStart, change.originalLength, modifiedStart, change.modifiedLength));
                 if (score > bestScore) {
                     bestScore = score;
                     bestDelta = delta;
@@ -2892,8 +3775,80 @@ class LcsDiff {
             }
             change.originalStart -= bestDelta;
             change.modifiedStart -= bestDelta;
+            const mergedChangeArr = [null];
+            if (i > 0 && this.ChangesOverlap(changes[i - 1], changes[i], mergedChangeArr)) {
+                changes[i - 1] = mergedChangeArr[0];
+                changes.splice(i, 1);
+                i++;
+                continue;
+            }
+        }
+        // There could be multiple longest common substrings.
+        // Give preference to the ones containing longer lines
+        if (this._hasStrings) {
+            for (let i = 1, len = changes.length; i < len; i++) {
+                const aChange = changes[i - 1];
+                const bChange = changes[i];
+                const matchedLength = bChange.originalStart - aChange.originalStart - aChange.originalLength;
+                const aOriginalStart = aChange.originalStart;
+                const bOriginalEnd = bChange.originalStart + bChange.originalLength;
+                const abOriginalLength = bOriginalEnd - aOriginalStart;
+                const aModifiedStart = aChange.modifiedStart;
+                const bModifiedEnd = bChange.modifiedStart + bChange.modifiedLength;
+                const abModifiedLength = bModifiedEnd - aModifiedStart;
+                // Avoid wasting a lot of time with these searches
+                if (matchedLength < 5 && abOriginalLength < 20 && abModifiedLength < 20) {
+                    const t = this._findBetterContiguousSequence(aOriginalStart, abOriginalLength, aModifiedStart, abModifiedLength, matchedLength);
+                    if (t) {
+                        const [originalMatchStart, modifiedMatchStart] = t;
+                        if (originalMatchStart !== aChange.originalStart + aChange.originalLength || modifiedMatchStart !== aChange.modifiedStart + aChange.modifiedLength) {
+                            // switch to another sequence that has a better score
+                            aChange.originalLength = originalMatchStart - aChange.originalStart;
+                            aChange.modifiedLength = modifiedMatchStart - aChange.modifiedStart;
+                            bChange.originalStart = originalMatchStart + matchedLength;
+                            bChange.modifiedStart = modifiedMatchStart + matchedLength;
+                            bChange.originalLength = bOriginalEnd - bChange.originalStart;
+                            bChange.modifiedLength = bModifiedEnd - bChange.modifiedStart;
+                        }
+                    }
+                }
+            }
         }
         return changes;
+    }
+    _findBetterContiguousSequence(originalStart, originalLength, modifiedStart, modifiedLength, desiredLength) {
+        if (originalLength < desiredLength || modifiedLength < desiredLength) {
+            return null;
+        }
+        const originalMax = originalStart + originalLength - desiredLength + 1;
+        const modifiedMax = modifiedStart + modifiedLength - desiredLength + 1;
+        let bestScore = 0;
+        let bestOriginalStart = 0;
+        let bestModifiedStart = 0;
+        for (let i = originalStart; i < originalMax; i++) {
+            for (let j = modifiedStart; j < modifiedMax; j++) {
+                const score = this._contiguousSequenceScore(i, j, desiredLength);
+                if (score > 0 && score > bestScore) {
+                    bestScore = score;
+                    bestOriginalStart = i;
+                    bestModifiedStart = j;
+                }
+            }
+        }
+        if (bestScore > 0) {
+            return [bestOriginalStart, bestModifiedStart];
+        }
+        return null;
+    }
+    _contiguousSequenceScore(originalStart, modifiedStart, length) {
+        let score = 0;
+        for (let l = 0; l < length; l++) {
+            if (!this.ElementsAreEqual(originalStart + l, modifiedStart + l)) {
+                return 0;
+            }
+            score += this._originalStringElements[originalStart + l].length;
+        }
+        return score;
     }
     _OriginalIsBoundary(index) {
         if (index <= 0 || index >= this._originalElementsOrHash.length - 1) {
@@ -3035,14 +3990,55 @@ class LcsDiff {
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-const safeProcess = (typeof process === 'undefined') ? {
-    cwd() { return '/'; },
-    env: Object.create(null),
-    get platform() { return isWindows ? 'win32' : isMacintosh ? 'darwin' : 'linux'; },
-    nextTick(callback) { return setImmediate(callback); }
-} : process;
+let safeProcess;
+// Native sandbox environment
+if (typeof platform_globals.vscode !== 'undefined' && typeof platform_globals.vscode.process !== 'undefined') {
+    const sandboxProcess = platform_globals.vscode.process;
+    safeProcess = {
+        get platform() { return sandboxProcess.platform; },
+        get arch() { return sandboxProcess.arch; },
+        get env() { return sandboxProcess.env; },
+        cwd() { return sandboxProcess.cwd(); }
+    };
+}
+// Native node.js environment
+else if (typeof process !== 'undefined') {
+    safeProcess = {
+        get platform() { return process.platform; },
+        get arch() { return process.arch; },
+        get env() { return process.env; },
+        cwd() { return process.env['VSCODE_CWD'] || process.cwd(); }
+    };
+}
+// Web environment
+else {
+    safeProcess = {
+        // Supported
+        get platform() { return isWindows ? 'win32' : isMacintosh ? 'darwin' : 'linux'; },
+        get arch() { return undefined; /* arch is undefined in web */ },
+        // Unsupported
+        get env() { return {}; },
+        cwd() { return '/'; }
+    };
+}
+/**
+ * Provides safe access to the `cwd` property in node.js, sandboxed or web
+ * environments.
+ *
+ * Note: in web, this property is hardcoded to be `/`.
+ */
 const cwd = safeProcess.cwd;
+/**
+ * Provides safe access to the `env` property in node.js, sandboxed or web
+ * environments.
+ *
+ * Note: in web, this property is hardcoded to be `{}`.
+ */
 const env = safeProcess.env;
+/**
+ * Provides safe access to the `platform` property in node.js, sandboxed or web
+ * environments.
+ */
 const platform = safeProcess.platform;
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/path.js
@@ -3051,7 +4047,7 @@ const platform = safeProcess.platform;
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 // NOTE: VSCode's copy of nodejs path library to be usable in common (non-node) namespace
-// Copied from: https://github.com/nodejs/node/blob/v12.8.1/lib/path.js
+// Copied from: https://github.com/nodejs/node/blob/v14.16.0/lib/path.js
 /**
  * Copyright Joyent, Inc. and other Node contributors.
  *
@@ -3114,8 +4110,8 @@ function isPosixPathSeparator(code) {
     return code === CHAR_FORWARD_SLASH;
 }
 function isWindowsDeviceRoot(code) {
-    return code >= CHAR_UPPERCASE_A && code <= CHAR_UPPERCASE_Z ||
-        code >= CHAR_LOWERCASE_A && code <= CHAR_LOWERCASE_Z;
+    return (code >= CHAR_UPPERCASE_A && code <= CHAR_UPPERCASE_Z) ||
+        (code >= CHAR_LOWERCASE_A && code <= CHAR_LOWERCASE_Z);
 }
 // Resolves . and .. elements in a path with directory names
 function normalizeString(path, allowAboveRoot, separator, isPathSeparator) {
@@ -3231,8 +4227,8 @@ const win32 = {
                 // Verify that a cwd was found and that it actually points
                 // to our drive. If not, default to the drive's root.
                 if (path === undefined ||
-                    path.slice(0, 2).toLowerCase() !== resolvedDevice.toLowerCase() &&
-                        path.charCodeAt(2) === CHAR_BACKWARD_SLASH) {
+                    (path.slice(0, 2).toLowerCase() !== resolvedDevice.toLowerCase() &&
+                        path.charCodeAt(2) === CHAR_BACKWARD_SLASH)) {
                     path = `${resolvedDevice}\\`;
                 }
             }
@@ -3430,10 +4426,10 @@ const win32 = {
         const code = path.charCodeAt(0);
         return isPathSeparator(code) ||
             // Possible device root
-            len > 2 &&
+            (len > 2 &&
                 isWindowsDeviceRoot(code) &&
                 path.charCodeAt(1) === CHAR_COLON &&
-                isPathSeparator(path.charCodeAt(2));
+                isPathSeparator(path.charCodeAt(2)));
     },
     join(...paths) {
         if (paths.length === 0) {
@@ -3457,14 +4453,14 @@ const win32 = {
             return '.';
         }
         // Make sure that the joined path doesn't start with two slashes, because
-        // normalize() will mistake it for an UNC path then.
+        // normalize() will mistake it for a UNC path then.
         //
         // This step is skipped when it is very clear that the user actually
-        // intended to point at an UNC path. This is assumed when the first
+        // intended to point at a UNC path. This is assumed when the first
         // non-empty string arguments starts with exactly two slashes followed by
         // at least one more non-slash character.
         //
-        // Note that for normalize() to treat a path as an UNC path it needs to
+        // Note that for normalize() to treat a path as a UNC path it needs to
         // have at least 2 components, so we don't filter for that here.
         // This means that the user can use join to construct UNC paths from
         // a server name and a share name; for example:
@@ -4549,7 +5545,7 @@ class URI {
             && typeof thing.path === 'string'
             && typeof thing.query === 'string'
             && typeof thing.scheme === 'string'
-            && typeof thing.fsPath === 'function'
+            && typeof thing.fsPath === 'string'
             && typeof thing.with === 'function'
             && typeof thing.toString === 'function';
     }
@@ -4688,7 +5684,9 @@ class URI {
         return new Uri('file', authority, path, _empty, _empty);
     }
     static from(components) {
-        return new Uri(components.scheme, components.authority, components.path, components.query, components.fragment);
+        const result = new Uri(components.scheme, components.authority, components.path, components.query, components.fragment);
+        _validateUri(result, true);
+        return result;
     }
     /**
      * Join a URI path with path fragments and normalizes the resulting path.
@@ -4699,7 +5697,7 @@ class URI {
      */
     static joinPath(uri, ...pathFragment) {
         if (!uri.path) {
-            throw new Error(`[UriError]: cannot call joinPaths on URI without path`);
+            throw new Error(`[UriError]: cannot call joinPath on URI without path`);
         }
         let newPath;
         if (isWindows && uri.scheme === 'file') {
@@ -4744,7 +5742,7 @@ class URI {
     }
 }
 const _pathSepMarker = isWindows ? 1 : undefined;
-// This class exists so that URI is compatibile with vscode.Uri (API).
+// This class exists so that URI is compatible with vscode.Uri (API).
 class Uri extends URI {
     constructor() {
         super(...arguments);
@@ -4771,7 +5769,7 @@ class Uri extends URI {
     }
     toJSON() {
         const res = {
-            $mid: 1
+            $mid: 1 /* Uri */
         };
         // cached state
         if (this._fsPath) {
@@ -5023,7 +6021,7 @@ function percentDecode(str) {
 /**
  * A position in the editor.
  */
-class Position {
+class position_Position {
     constructor(lineNumber, column) {
         this.lineNumber = lineNumber;
         this.column = column;
@@ -5039,7 +6037,7 @@ class Position {
             return this;
         }
         else {
-            return new Position(newLineNumber, newColumn);
+            return new position_Position(newLineNumber, newColumn);
         }
     }
     /**
@@ -5055,7 +6053,7 @@ class Position {
      * Test if this position equals other position
      */
     equals(other) {
-        return Position.equals(this, other);
+        return position_Position.equals(this, other);
     }
     /**
      * Test if position `a` equals position `b`
@@ -5074,7 +6072,7 @@ class Position {
      * If the two positions are equal, the result will be false.
      */
     isBefore(other) {
-        return Position.isBefore(this, other);
+        return position_Position.isBefore(this, other);
     }
     /**
      * Test if position `a` is before position `b`.
@@ -5094,7 +6092,7 @@ class Position {
      * If the two positions are equal, the result will be true.
      */
     isBeforeOrEqual(other) {
-        return Position.isBeforeOrEqual(this, other);
+        return position_Position.isBeforeOrEqual(this, other);
     }
     /**
      * Test if position `a` is before position `b`.
@@ -5126,7 +6124,7 @@ class Position {
      * Clone this position.
      */
     clone() {
-        return new Position(this.lineNumber, this.column);
+        return new position_Position(this.lineNumber, this.column);
     }
     /**
      * Convert to a human-readable representation.
@@ -5139,7 +6137,7 @@ class Position {
      * Create a `Position` from an `IPosition`.
      */
     static lift(pos) {
-        return new Position(pos.lineNumber, pos.column);
+        return new position_Position(pos.lineNumber, pos.column);
     }
     /**
      * Test if `obj` is an `IPosition`.
@@ -5160,7 +6158,7 @@ class Position {
 /**
  * A range in the editor. (startLineNumber,startColumn) is <= (endLineNumber,endColumn)
  */
-class Range {
+class range_Range {
     constructor(startLineNumber, startColumn, endLineNumber, endColumn) {
         if ((startLineNumber > endLineNumber) || (startLineNumber === endLineNumber && startColumn > endColumn)) {
             this.startLineNumber = endLineNumber;
@@ -5179,7 +6177,7 @@ class Range {
      * Test if this range is empty.
      */
     isEmpty() {
-        return Range.isEmpty(this);
+        return range_Range.isEmpty(this);
     }
     /**
      * Test if `range` is empty.
@@ -5191,7 +6189,7 @@ class Range {
      * Test if position is in this range. If the position is at the edges, will return true.
      */
     containsPosition(position) {
-        return Range.containsPosition(this, position);
+        return range_Range.containsPosition(this, position);
     }
     /**
      * Test if `position` is in `range`. If the position is at the edges, will return true.
@@ -5209,10 +6207,26 @@ class Range {
         return true;
     }
     /**
+     * Test if `position` is in `range`. If the position is at the edges, will return false.
+     * @internal
+     */
+    static strictContainsPosition(range, position) {
+        if (position.lineNumber < range.startLineNumber || position.lineNumber > range.endLineNumber) {
+            return false;
+        }
+        if (position.lineNumber === range.startLineNumber && position.column <= range.startColumn) {
+            return false;
+        }
+        if (position.lineNumber === range.endLineNumber && position.column >= range.endColumn) {
+            return false;
+        }
+        return true;
+    }
+    /**
      * Test if range is in this range. If the range is equal to this range, will return true.
      */
     containsRange(range) {
-        return Range.containsRange(this, range);
+        return range_Range.containsRange(this, range);
     }
     /**
      * Test if `otherRange` is in `range`. If the ranges are equal, will return true.
@@ -5236,10 +6250,10 @@ class Range {
      * Test if `range` is strictly in this range. `range` must start after and end before this range for the result to be true.
      */
     strictContainsRange(range) {
-        return Range.strictContainsRange(this, range);
+        return range_Range.strictContainsRange(this, range);
     }
     /**
-     * Test if `otherRange` is strinctly in `range` (must start after, and end before). If the ranges are equal, will return false.
+     * Test if `otherRange` is strictly in `range` (must start after, and end before). If the ranges are equal, will return false.
      */
     static strictContainsRange(range, otherRange) {
         if (otherRange.startLineNumber < range.startLineNumber || otherRange.endLineNumber < range.startLineNumber) {
@@ -5261,7 +6275,7 @@ class Range {
      * The smallest position will be used as the start point, and the largest one as the end point.
      */
     plusRange(range) {
-        return Range.plusRange(this, range);
+        return range_Range.plusRange(this, range);
     }
     /**
      * A reunion of the two ranges.
@@ -5296,13 +6310,13 @@ class Range {
             endLineNumber = a.endLineNumber;
             endColumn = a.endColumn;
         }
-        return new Range(startLineNumber, startColumn, endLineNumber, endColumn);
+        return new range_Range(startLineNumber, startColumn, endLineNumber, endColumn);
     }
     /**
      * A intersection of the two ranges.
      */
     intersectRanges(range) {
-        return Range.intersectRanges(this, range);
+        return range_Range.intersectRanges(this, range);
     }
     /**
      * A intersection of the two ranges.
@@ -5337,13 +6351,13 @@ class Range {
         if (resultStartLineNumber === resultEndLineNumber && resultStartColumn > resultEndColumn) {
             return null;
         }
-        return new Range(resultStartLineNumber, resultStartColumn, resultEndLineNumber, resultEndColumn);
+        return new range_Range(resultStartLineNumber, resultStartColumn, resultEndLineNumber, resultEndColumn);
     }
     /**
      * Test if this range equals other.
      */
     equalsRange(other) {
-        return Range.equalsRange(this, other);
+        return range_Range.equalsRange(this, other);
     }
     /**
      * Test if range `a` equals `b`.
@@ -5360,25 +6374,25 @@ class Range {
      * Return the end position (which will be after or equal to the start position)
      */
     getEndPosition() {
-        return Range.getEndPosition(this);
+        return range_Range.getEndPosition(this);
     }
     /**
      * Return the end position (which will be after or equal to the start position)
      */
     static getEndPosition(range) {
-        return new Position(range.endLineNumber, range.endColumn);
+        return new position_Position(range.endLineNumber, range.endColumn);
     }
     /**
      * Return the start position (which will be before or equal to the end position)
      */
     getStartPosition() {
-        return Range.getStartPosition(this);
+        return range_Range.getStartPosition(this);
     }
     /**
      * Return the start position (which will be before or equal to the end position)
      */
     static getStartPosition(range) {
-        return new Position(range.startLineNumber, range.startColumn);
+        return new position_Position(range.startLineNumber, range.startColumn);
     }
     /**
      * Transform to a user presentable string representation.
@@ -5390,35 +6404,35 @@ class Range {
      * Create a new range using this range's start position, and using endLineNumber and endColumn as the end position.
      */
     setEndPosition(endLineNumber, endColumn) {
-        return new Range(this.startLineNumber, this.startColumn, endLineNumber, endColumn);
+        return new range_Range(this.startLineNumber, this.startColumn, endLineNumber, endColumn);
     }
     /**
      * Create a new range using this range's end position, and using startLineNumber and startColumn as the start position.
      */
     setStartPosition(startLineNumber, startColumn) {
-        return new Range(startLineNumber, startColumn, this.endLineNumber, this.endColumn);
+        return new range_Range(startLineNumber, startColumn, this.endLineNumber, this.endColumn);
     }
     /**
      * Create a new empty range using this range's start position.
      */
     collapseToStart() {
-        return Range.collapseToStart(this);
+        return range_Range.collapseToStart(this);
     }
     /**
      * Create a new empty range using this range's start position.
      */
     static collapseToStart(range) {
-        return new Range(range.startLineNumber, range.startColumn, range.startLineNumber, range.startColumn);
+        return new range_Range(range.startLineNumber, range.startColumn, range.startLineNumber, range.startColumn);
     }
     // ---
     static fromPositions(start, end = start) {
-        return new Range(start.lineNumber, start.column, end.lineNumber, end.column);
+        return new range_Range(start.lineNumber, start.column, end.lineNumber, end.column);
     }
     static lift(range) {
         if (!range) {
             return null;
         }
-        return new Range(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
+        return new range_Range(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
     }
     /**
      * Test if `obj` is an `IRange`.
@@ -5543,6 +6557,9 @@ class LineSequence {
             elements[i] = this.lines[i].substring(this._startColumns[i] - 1, this._endColumns[i] - 1);
         }
         return elements;
+    }
+    getStrictElement(index) {
+        return this.lines[index];
     }
     getStartLineNumber(i) {
         return i + 1;
@@ -5725,6 +6742,12 @@ class DiffComputer {
     computeDiff() {
         if (this.original.lines.length === 1 && this.original.lines[0].length === 0) {
             // empty original => fast path
+            if (this.modified.lines.length === 1 && this.modified.lines[0].length === 0) {
+                return {
+                    quitEarly: false,
+                    changes: []
+                };
+            }
             return {
                 quitEarly: false,
                 changes: [{
@@ -5934,12 +6957,7 @@ function toUint32(v) {
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-class PrefixSumIndexOfResult {
-    constructor(index, remainder) {
-        this.index = index;
-        this.remainder = remainder;
-    }
-}
+
 class PrefixSumComputer {
     constructor(values) {
         this.values = values;
@@ -5968,7 +6986,7 @@ class PrefixSumComputer {
         }
         return true;
     }
-    changeValue(index, value) {
+    setValue(index, value) {
         index = toUint32(index);
         value = toUint32(value);
         if (this.values[index] === value) {
@@ -5980,24 +6998,24 @@ class PrefixSumComputer {
         }
         return true;
     }
-    removeValues(startIndex, cnt) {
+    removeValues(startIndex, count) {
         startIndex = toUint32(startIndex);
-        cnt = toUint32(cnt);
+        count = toUint32(count);
         const oldValues = this.values;
         const oldPrefixSum = this.prefixSum;
         if (startIndex >= oldValues.length) {
             return false;
         }
-        let maxCnt = oldValues.length - startIndex;
-        if (cnt >= maxCnt) {
-            cnt = maxCnt;
+        let maxCount = oldValues.length - startIndex;
+        if (count >= maxCount) {
+            count = maxCount;
         }
-        if (cnt === 0) {
+        if (count === 0) {
             return false;
         }
-        this.values = new Uint32Array(oldValues.length - cnt);
+        this.values = new Uint32Array(oldValues.length - count);
         this.values.set(oldValues.subarray(0, startIndex), 0);
-        this.values.set(oldValues.subarray(startIndex + cnt), startIndex);
+        this.values.set(oldValues.subarray(startIndex + count), startIndex);
         this.prefixSum = new Uint32Array(this.values.length);
         if (startIndex - 1 < this.prefixSumValidIndex[0]) {
             this.prefixSumValidIndex[0] = startIndex - 1;
@@ -6007,20 +7025,24 @@ class PrefixSumComputer {
         }
         return true;
     }
-    getTotalValue() {
+    getTotalSum() {
         if (this.values.length === 0) {
             return 0;
         }
-        return this._getAccumulatedValue(this.values.length - 1);
+        return this._getPrefixSum(this.values.length - 1);
     }
-    getAccumulatedValue(index) {
+    /**
+     * Returns the sum of the first `index + 1` many items.
+     * @returns `SUM(0 <= j <= index, values[j])`.
+     */
+    getPrefixSum(index) {
         if (index < 0) {
             return 0;
         }
         index = toUint32(index);
-        return this._getAccumulatedValue(index);
+        return this._getPrefixSum(index);
     }
-    _getAccumulatedValue(index) {
+    _getPrefixSum(index) {
         if (index <= this.prefixSumValidIndex[0]) {
             return this.prefixSum[index];
         }
@@ -6038,10 +7060,10 @@ class PrefixSumComputer {
         this.prefixSumValidIndex[0] = Math.max(this.prefixSumValidIndex[0], index);
         return this.prefixSum[index];
     }
-    getIndexOf(accumulatedValue) {
-        accumulatedValue = Math.floor(accumulatedValue); //@perf
+    getIndexOf(sum) {
+        sum = Math.floor(sum);
         // Compute all sums (to get a fully valid prefixSum)
-        this.getTotalValue();
+        this.getTotalSum();
         let low = 0;
         let high = this.values.length - 1;
         let mid = 0;
@@ -6051,17 +7073,106 @@ class PrefixSumComputer {
             mid = low + ((high - low) / 2) | 0;
             midStop = this.prefixSum[mid];
             midStart = midStop - this.values[mid];
-            if (accumulatedValue < midStart) {
+            if (sum < midStart) {
                 high = mid - 1;
             }
-            else if (accumulatedValue >= midStop) {
+            else if (sum >= midStop) {
                 low = mid + 1;
             }
             else {
                 break;
             }
         }
-        return new PrefixSumIndexOfResult(mid, accumulatedValue - midStart);
+        return new PrefixSumIndexOfResult(mid, sum - midStart);
+    }
+}
+/**
+ * {@link getIndexOf} has an amortized runtime complexity of O(1).
+ *
+ * ({@link PrefixSumComputer.getIndexOf} is just  O(log n))
+*/
+class ConstantTimePrefixSumComputer {
+    constructor(values) {
+        this._values = values;
+        this._isValid = false;
+        this._validEndIndex = -1;
+        this._prefixSum = [];
+        this._indexBySum = [];
+    }
+    /**
+     * @returns SUM(0 <= j < values.length, values[j])
+     */
+    getTotalSum() {
+        this._ensureValid();
+        return this._indexBySum.length;
+    }
+    /**
+     * Returns the sum of the first `count` many items.
+     * @returns `SUM(0 <= j < count, values[j])`.
+     */
+    getPrefixSum(count) {
+        this._ensureValid();
+        if (count === 0) {
+            return 0;
+        }
+        return this._prefixSum[count - 1];
+    }
+    /**
+     * @returns `result`, such that `getPrefixSum(result.index) + result.remainder = sum`
+     */
+    getIndexOf(sum) {
+        this._ensureValid();
+        const idx = this._indexBySum[sum];
+        const viewLinesAbove = idx > 0 ? this._prefixSum[idx - 1] : 0;
+        return new PrefixSumIndexOfResult(idx, sum - viewLinesAbove);
+    }
+    removeValues(start, deleteCount) {
+        this._values.splice(start, deleteCount);
+        this._invalidate(start);
+    }
+    insertValues(insertIndex, insertArr) {
+        this._values = arrayInsert(this._values, insertIndex, insertArr);
+        this._invalidate(insertIndex);
+    }
+    _invalidate(index) {
+        this._isValid = false;
+        this._validEndIndex = Math.min(this._validEndIndex, index - 1);
+    }
+    _ensureValid() {
+        if (this._isValid) {
+            return;
+        }
+        for (let i = this._validEndIndex + 1, len = this._values.length; i < len; i++) {
+            const value = this._values[i];
+            const sumAbove = i > 0 ? this._prefixSum[i - 1] : 0;
+            this._prefixSum[i] = sumAbove + value;
+            for (let j = 0; j < value; j++) {
+                this._indexBySum[sumAbove + j] = i;
+            }
+        }
+        // trim things
+        this._prefixSum.length = this._values.length;
+        this._indexBySum.length = this._prefixSum[this._prefixSum.length - 1];
+        // mark as valid
+        this._isValid = true;
+        this._validEndIndex = this._values.length - 1;
+    }
+    setValue(index, value) {
+        if (this._values[index] === value) {
+            // no change
+            return;
+        }
+        this._values[index] = value;
+        this._invalidate(index);
+    }
+}
+class PrefixSumIndexOfResult {
+    constructor(index, remainder) {
+        this.index = index;
+        this.remainder = remainder;
+        this._prefixSumIndexOfResultBrand = undefined;
+        this.index = index;
+        this.remainder = remainder;
     }
 }
 
@@ -6070,6 +7181,7 @@ class PrefixSumComputer {
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
 
 
 class MirrorTextModel {
@@ -6083,6 +7195,9 @@ class MirrorTextModel {
     }
     dispose() {
         this._lines.length = 0;
+    }
+    get version() {
+        return this._versionId;
     }
     getText() {
         if (this._cachedTextValue === null) {
@@ -6099,7 +7214,7 @@ class MirrorTextModel {
         const changes = e.changes;
         for (const change of changes) {
             this._acceptDeleteRange(change.range);
-            this._acceptInsertText(new Position(change.range.startLineNumber, change.range.startColumn), change.text);
+            this._acceptInsertText(new position_Position(change.range.startLineNumber, change.range.startColumn), change.text);
         }
         this._versionId = e.versionId;
         this._cachedTextValue = null;
@@ -6122,7 +7237,7 @@ class MirrorTextModel {
         this._lines[lineIndex] = newValue;
         if (this._lineStarts) {
             // update prefix sum
-            this._lineStarts.changeValue(lineIndex, this._lines[lineIndex].length + this._eol.length);
+            this._lineStarts.setValue(lineIndex, this._lines[lineIndex].length + this._eol.length);
         }
     }
     _acceptDeleteRange(range) {
@@ -6151,7 +7266,7 @@ class MirrorTextModel {
             // Nothing to insert
             return;
         }
-        let insertLines = insertText.split(/\r\n|\r|\n/);
+        let insertLines = splitLines(insertText);
         if (insertLines.length === 1) {
             // Inserting text on one line
             this._setLineText(position.lineNumber - 1, this._lines[position.lineNumber - 1].substring(0, position.column - 1)
@@ -6237,7 +7352,6 @@ function getWordAtText(column, wordDefinition, text, textOffset, config = _defau
         // but use a sub-string in which a word must occur
         let start = column - config.maxLen / 2;
         if (start < 0) {
-            textOffset += column;
             start = 0;
         }
         else {
@@ -6253,7 +7367,7 @@ function getWordAtText(column, wordDefinition, text, textOffset, config = _defau
     for (let i = 1;; i++) {
         // check time budget
         if (Date.now() - t1 >= config.timeBudget) {
-            // break;
+            break;
         }
         // reset the index at which the regexp should start matching, also know where it
         // should stop so that subsequent search don't repeat previous searches
@@ -6440,7 +7554,8 @@ let _classifier = null;
 function getClassifier() {
     if (_classifier === null) {
         _classifier = new CharacterClassifier(0 /* None */);
-        const FORCE_TERMINATION_CHARACTERS = ' \t<>\'\"、。｡､，．：；‘“〈《「『【〔（［｛｢｣｝］）〕】』」》〉”’｀～…';
+        // allow-any-unicode-next-line
+        const FORCE_TERMINATION_CHARACTERS = ' \t<>\'\"、。｡､，．：；‘〈「『〔（［｛｢｣｝］）〕』」〉’｀～…';
         for (let i = 0; i < FORCE_TERMINATION_CHARACTERS.length; i++) {
             _classifier.set(FORCE_TERMINATION_CHARACTERS.charCodeAt(i), 1 /* ForceTermination */);
         }
@@ -6702,724 +7817,6 @@ class BasicInplaceReplace {
 }
 BasicInplaceReplace.INSTANCE = new BasicInplaceReplace();
 
-;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/linkedList.js
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-class Node {
-    constructor(element) {
-        this.element = element;
-        this.next = Node.Undefined;
-        this.prev = Node.Undefined;
-    }
-}
-Node.Undefined = new Node(undefined);
-class linkedList_LinkedList {
-    constructor() {
-        this._first = Node.Undefined;
-        this._last = Node.Undefined;
-        this._size = 0;
-    }
-    get size() {
-        return this._size;
-    }
-    isEmpty() {
-        return this._first === Node.Undefined;
-    }
-    clear() {
-        this._first = Node.Undefined;
-        this._last = Node.Undefined;
-        this._size = 0;
-    }
-    unshift(element) {
-        return this._insert(element, false);
-    }
-    push(element) {
-        return this._insert(element, true);
-    }
-    _insert(element, atTheEnd) {
-        const newNode = new Node(element);
-        if (this._first === Node.Undefined) {
-            this._first = newNode;
-            this._last = newNode;
-        }
-        else if (atTheEnd) {
-            // push
-            const oldLast = this._last;
-            this._last = newNode;
-            newNode.prev = oldLast;
-            oldLast.next = newNode;
-        }
-        else {
-            // unshift
-            const oldFirst = this._first;
-            this._first = newNode;
-            newNode.next = oldFirst;
-            oldFirst.prev = newNode;
-        }
-        this._size += 1;
-        let didRemove = false;
-        return () => {
-            if (!didRemove) {
-                didRemove = true;
-                this._remove(newNode);
-            }
-        };
-    }
-    shift() {
-        if (this._first === Node.Undefined) {
-            return undefined;
-        }
-        else {
-            const res = this._first.element;
-            this._remove(this._first);
-            return res;
-        }
-    }
-    pop() {
-        if (this._last === Node.Undefined) {
-            return undefined;
-        }
-        else {
-            const res = this._last.element;
-            this._remove(this._last);
-            return res;
-        }
-    }
-    _remove(node) {
-        if (node.prev !== Node.Undefined && node.next !== Node.Undefined) {
-            // middle
-            const anchor = node.prev;
-            anchor.next = node.next;
-            node.next.prev = anchor;
-        }
-        else if (node.prev === Node.Undefined && node.next === Node.Undefined) {
-            // only node
-            this._first = Node.Undefined;
-            this._last = Node.Undefined;
-        }
-        else if (node.next === Node.Undefined) {
-            // last
-            this._last = this._last.prev;
-            this._last.next = Node.Undefined;
-        }
-        else if (node.prev === Node.Undefined) {
-            // first
-            this._first = this._first.next;
-            this._first.prev = Node.Undefined;
-        }
-        // done
-        this._size -= 1;
-    }
-    *[Symbol.iterator]() {
-        let node = this._first;
-        while (node !== Node.Undefined) {
-            yield node.element;
-            node = node.next;
-        }
-    }
-    toArray() {
-        const result = [];
-        for (let node = this._first; node !== Node.Undefined; node = node.next) {
-            result.push(node.element);
-        }
-        return result;
-    }
-}
-
-;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/event.js
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
-
-
-var Event;
-(function (Event) {
-    Event.None = () => lifecycle_Disposable.None;
-    /**
-     * Given an event, returns another event which only fires once.
-     */
-    function once(event) {
-        return (listener, thisArgs = null, disposables) => {
-            // we need this, in case the event fires during the listener call
-            let didFire = false;
-            let result;
-            result = event(e => {
-                if (didFire) {
-                    return;
-                }
-                else if (result) {
-                    result.dispose();
-                }
-                else {
-                    didFire = true;
-                }
-                return listener.call(thisArgs, e);
-            }, null, disposables);
-            if (didFire) {
-                result.dispose();
-            }
-            return result;
-        };
-    }
-    Event.once = once;
-    /**
-     * Given an event and a `map` function, returns another event which maps each element
-     * through the mapping function.
-     */
-    function map(event, map) {
-        return snapshot((listener, thisArgs = null, disposables) => event(i => listener.call(thisArgs, map(i)), null, disposables));
-    }
-    Event.map = map;
-    /**
-     * Given an event and an `each` function, returns another identical event and calls
-     * the `each` function per each element.
-     */
-    function forEach(event, each) {
-        return snapshot((listener, thisArgs = null, disposables) => event(i => { each(i); listener.call(thisArgs, i); }, null, disposables));
-    }
-    Event.forEach = forEach;
-    function filter(event, filter) {
-        return snapshot((listener, thisArgs = null, disposables) => event(e => filter(e) && listener.call(thisArgs, e), null, disposables));
-    }
-    Event.filter = filter;
-    /**
-     * Given an event, returns the same event but typed as `Event<void>`.
-     */
-    function signal(event) {
-        return event;
-    }
-    Event.signal = signal;
-    function any(...events) {
-        return (listener, thisArgs = null, disposables) => combinedDisposable(...events.map(event => event(e => listener.call(thisArgs, e), null, disposables)));
-    }
-    Event.any = any;
-    /**
-     * Given an event and a `merge` function, returns another event which maps each element
-     * and the cumulative result through the `merge` function. Similar to `map`, but with memory.
-     */
-    function reduce(event, merge, initial) {
-        let output = initial;
-        return map(event, e => {
-            output = merge(output, e);
-            return output;
-        });
-    }
-    Event.reduce = reduce;
-    /**
-     * Given a chain of event processing functions (filter, map, etc), each
-     * function will be invoked per event & per listener. Snapshotting an event
-     * chain allows each function to be invoked just once per event.
-     */
-    function snapshot(event) {
-        let listener;
-        const emitter = new Emitter({
-            onFirstListenerAdd() {
-                listener = event(emitter.fire, emitter);
-            },
-            onLastListenerRemove() {
-                listener.dispose();
-            }
-        });
-        return emitter.event;
-    }
-    Event.snapshot = snapshot;
-    function debounce(event, merge, delay = 100, leading = false, leakWarningThreshold) {
-        let subscription;
-        let output = undefined;
-        let handle = undefined;
-        let numDebouncedCalls = 0;
-        const emitter = new Emitter({
-            leakWarningThreshold,
-            onFirstListenerAdd() {
-                subscription = event(cur => {
-                    numDebouncedCalls++;
-                    output = merge(output, cur);
-                    if (leading && !handle) {
-                        emitter.fire(output);
-                        output = undefined;
-                    }
-                    clearTimeout(handle);
-                    handle = setTimeout(() => {
-                        const _output = output;
-                        output = undefined;
-                        handle = undefined;
-                        if (!leading || numDebouncedCalls > 1) {
-                            emitter.fire(_output);
-                        }
-                        numDebouncedCalls = 0;
-                    }, delay);
-                });
-            },
-            onLastListenerRemove() {
-                subscription.dispose();
-            }
-        });
-        return emitter.event;
-    }
-    Event.debounce = debounce;
-    /**
-     * Given an event, it returns another event which fires only once and as soon as
-     * the input event emits. The event data is the number of millis it took for the
-     * event to fire.
-     */
-    function stopwatch(event) {
-        const start = new Date().getTime();
-        return map(once(event), _ => new Date().getTime() - start);
-    }
-    Event.stopwatch = stopwatch;
-    /**
-     * Given an event, it returns another event which fires only when the event
-     * element changes.
-     */
-    function latch(event) {
-        let firstCall = true;
-        let cache;
-        return filter(event, value => {
-            const shouldEmit = firstCall || value !== cache;
-            firstCall = false;
-            cache = value;
-            return shouldEmit;
-        });
-    }
-    Event.latch = latch;
-    /**
-     * Buffers the provided event until a first listener comes
-     * along, at which point fire all the events at once and
-     * pipe the event from then on.
-     *
-     * ```typescript
-     * const emitter = new Emitter<number>();
-     * const event = emitter.event;
-     * const bufferedEvent = buffer(event);
-     *
-     * emitter.fire(1);
-     * emitter.fire(2);
-     * emitter.fire(3);
-     * // nothing...
-     *
-     * const listener = bufferedEvent(num => console.log(num));
-     * // 1, 2, 3
-     *
-     * emitter.fire(4);
-     * // 4
-     * ```
-     */
-    function buffer(event, nextTick = false, _buffer = []) {
-        let buffer = _buffer.slice();
-        let listener = event(e => {
-            if (buffer) {
-                buffer.push(e);
-            }
-            else {
-                emitter.fire(e);
-            }
-        });
-        const flush = () => {
-            if (buffer) {
-                buffer.forEach(e => emitter.fire(e));
-            }
-            buffer = null;
-        };
-        const emitter = new Emitter({
-            onFirstListenerAdd() {
-                if (!listener) {
-                    listener = event(e => emitter.fire(e));
-                }
-            },
-            onFirstListenerDidAdd() {
-                if (buffer) {
-                    if (nextTick) {
-                        setTimeout(flush);
-                    }
-                    else {
-                        flush();
-                    }
-                }
-            },
-            onLastListenerRemove() {
-                if (listener) {
-                    listener.dispose();
-                }
-                listener = null;
-            }
-        });
-        return emitter.event;
-    }
-    Event.buffer = buffer;
-    class ChainableEvent {
-        constructor(event) {
-            this.event = event;
-        }
-        map(fn) {
-            return new ChainableEvent(map(this.event, fn));
-        }
-        forEach(fn) {
-            return new ChainableEvent(forEach(this.event, fn));
-        }
-        filter(fn) {
-            return new ChainableEvent(filter(this.event, fn));
-        }
-        reduce(merge, initial) {
-            return new ChainableEvent(reduce(this.event, merge, initial));
-        }
-        latch() {
-            return new ChainableEvent(latch(this.event));
-        }
-        debounce(merge, delay = 100, leading = false, leakWarningThreshold) {
-            return new ChainableEvent(debounce(this.event, merge, delay, leading, leakWarningThreshold));
-        }
-        on(listener, thisArgs, disposables) {
-            return this.event(listener, thisArgs, disposables);
-        }
-        once(listener, thisArgs, disposables) {
-            return once(this.event)(listener, thisArgs, disposables);
-        }
-    }
-    function chain(event) {
-        return new ChainableEvent(event);
-    }
-    Event.chain = chain;
-    function fromNodeEventEmitter(emitter, eventName, map = id => id) {
-        const fn = (...args) => result.fire(map(...args));
-        const onFirstListenerAdd = () => emitter.on(eventName, fn);
-        const onLastListenerRemove = () => emitter.removeListener(eventName, fn);
-        const result = new Emitter({ onFirstListenerAdd, onLastListenerRemove });
-        return result.event;
-    }
-    Event.fromNodeEventEmitter = fromNodeEventEmitter;
-    function fromDOMEventEmitter(emitter, eventName, map = id => id) {
-        const fn = (...args) => result.fire(map(...args));
-        const onFirstListenerAdd = () => emitter.addEventListener(eventName, fn);
-        const onLastListenerRemove = () => emitter.removeEventListener(eventName, fn);
-        const result = new Emitter({ onFirstListenerAdd, onLastListenerRemove });
-        return result.event;
-    }
-    Event.fromDOMEventEmitter = fromDOMEventEmitter;
-    function fromPromise(promise) {
-        const emitter = new Emitter();
-        let shouldEmit = false;
-        promise
-            .then(undefined, () => null)
-            .then(() => {
-            if (!shouldEmit) {
-                setTimeout(() => emitter.fire(undefined), 0);
-            }
-            else {
-                emitter.fire(undefined);
-            }
-        });
-        shouldEmit = true;
-        return emitter.event;
-    }
-    Event.fromPromise = fromPromise;
-    function toPromise(event) {
-        return new Promise(c => once(event)(c));
-    }
-    Event.toPromise = toPromise;
-})(Event || (Event = {}));
-let _globalLeakWarningThreshold = -1;
-class LeakageMonitor {
-    constructor(customThreshold, name = Math.random().toString(18).slice(2, 5)) {
-        this.customThreshold = customThreshold;
-        this.name = name;
-        this._warnCountdown = 0;
-    }
-    dispose() {
-        if (this._stacks) {
-            this._stacks.clear();
-        }
-    }
-    check(listenerCount) {
-        let threshold = _globalLeakWarningThreshold;
-        if (typeof this.customThreshold === 'number') {
-            threshold = this.customThreshold;
-        }
-        if (threshold <= 0 || listenerCount < threshold) {
-            return undefined;
-        }
-        if (!this._stacks) {
-            this._stacks = new Map();
-        }
-        const stack = new Error().stack.split('\n').slice(3).join('\n');
-        const count = (this._stacks.get(stack) || 0);
-        this._stacks.set(stack, count + 1);
-        this._warnCountdown -= 1;
-        if (this._warnCountdown <= 0) {
-            // only warn on first exceed and then every time the limit
-            // is exceeded by 50% again
-            this._warnCountdown = threshold * 0.5;
-            // find most frequent listener and print warning
-            let topStack;
-            let topCount = 0;
-            for (const [stack, count] of this._stacks) {
-                if (!topStack || topCount < count) {
-                    topStack = stack;
-                    topCount = count;
-                }
-            }
-            console.warn(`[${this.name}] potential listener LEAK detected, having ${listenerCount} listeners already. MOST frequent listener (${topCount}):`);
-            console.warn(topStack);
-        }
-        return () => {
-            const count = (this._stacks.get(stack) || 0);
-            this._stacks.set(stack, count - 1);
-        };
-    }
-}
-/**
- * The Emitter can be used to expose an Event to the public
- * to fire it from the insides.
- * Sample:
-    class Document {
-
-        private readonly _onDidChange = new Emitter<(value:string)=>any>();
-
-        public onDidChange = this._onDidChange.event;
-
-        // getter-style
-        // get onDidChange(): Event<(value:string)=>any> {
-        // 	return this._onDidChange.event;
-        // }
-
-        private _doIt() {
-            //...
-            this._onDidChange.fire(value);
-        }
-    }
- */
-class Emitter {
-    constructor(options) {
-        this._disposed = false;
-        this._options = options;
-        this._leakageMon = _globalLeakWarningThreshold > 0
-            ? new LeakageMonitor(this._options && this._options.leakWarningThreshold)
-            : undefined;
-    }
-    /**
-     * For the public to allow to subscribe
-     * to events from this Emitter
-     */
-    get event() {
-        if (!this._event) {
-            this._event = (listener, thisArgs, disposables) => {
-                if (!this._listeners) {
-                    this._listeners = new linkedList_LinkedList();
-                }
-                const firstListener = this._listeners.isEmpty();
-                if (firstListener && this._options && this._options.onFirstListenerAdd) {
-                    this._options.onFirstListenerAdd(this);
-                }
-                const remove = this._listeners.push(!thisArgs ? listener : [listener, thisArgs]);
-                if (firstListener && this._options && this._options.onFirstListenerDidAdd) {
-                    this._options.onFirstListenerDidAdd(this);
-                }
-                if (this._options && this._options.onListenerDidAdd) {
-                    this._options.onListenerDidAdd(this, listener, thisArgs);
-                }
-                // check and record this emitter for potential leakage
-                let removeMonitor;
-                if (this._leakageMon) {
-                    removeMonitor = this._leakageMon.check(this._listeners.size);
-                }
-                let result;
-                result = {
-                    dispose: () => {
-                        if (removeMonitor) {
-                            removeMonitor();
-                        }
-                        result.dispose = Emitter._noop;
-                        if (!this._disposed) {
-                            remove();
-                            if (this._options && this._options.onLastListenerRemove) {
-                                const hasListeners = (this._listeners && !this._listeners.isEmpty());
-                                if (!hasListeners) {
-                                    this._options.onLastListenerRemove(this);
-                                }
-                            }
-                        }
-                    }
-                };
-                if (disposables instanceof DisposableStore) {
-                    disposables.add(result);
-                }
-                else if (Array.isArray(disposables)) {
-                    disposables.push(result);
-                }
-                return result;
-            };
-        }
-        return this._event;
-    }
-    /**
-     * To be kept private to fire an event to
-     * subscribers
-     */
-    fire(event) {
-        if (this._listeners) {
-            // put all [listener,event]-pairs into delivery queue
-            // then emit all event. an inner/nested event might be
-            // the driver of this
-            if (!this._deliveryQueue) {
-                this._deliveryQueue = new linkedList_LinkedList();
-            }
-            for (let listener of this._listeners) {
-                this._deliveryQueue.push([listener, event]);
-            }
-            while (this._deliveryQueue.size > 0) {
-                const [listener, event] = this._deliveryQueue.shift();
-                try {
-                    if (typeof listener === 'function') {
-                        listener.call(undefined, event);
-                    }
-                    else {
-                        listener[0].call(listener[1], event);
-                    }
-                }
-                catch (e) {
-                    onUnexpectedError(e);
-                }
-            }
-        }
-    }
-    dispose() {
-        if (this._listeners) {
-            this._listeners.clear();
-        }
-        if (this._deliveryQueue) {
-            this._deliveryQueue.clear();
-        }
-        if (this._leakageMon) {
-            this._leakageMon.dispose();
-        }
-        this._disposed = true;
-    }
-}
-Emitter._noop = function () { };
-class PauseableEmitter extends (/* unused pure expression or super */ null && (Emitter)) {
-    constructor(options) {
-        super(options);
-        this._isPaused = 0;
-        this._eventQueue = new LinkedList();
-        this._mergeFn = options && options.merge;
-    }
-    pause() {
-        this._isPaused++;
-    }
-    resume() {
-        if (this._isPaused !== 0 && --this._isPaused === 0) {
-            if (this._mergeFn) {
-                // use the merge function to create a single composite
-                // event. make a copy in case firing pauses this emitter
-                const events = this._eventQueue.toArray();
-                this._eventQueue.clear();
-                super.fire(this._mergeFn(events));
-            }
-            else {
-                // no merging, fire each event individually and test
-                // that this emitter isn't paused halfway through
-                while (!this._isPaused && this._eventQueue.size !== 0) {
-                    super.fire(this._eventQueue.shift());
-                }
-            }
-        }
-    }
-    fire(event) {
-        if (this._listeners) {
-            if (this._isPaused !== 0) {
-                this._eventQueue.push(event);
-            }
-            else {
-                super.fire(event);
-            }
-        }
-    }
-}
-/**
- * The EventBufferer is useful in situations in which you want
- * to delay firing your events during some code.
- * You can wrap that code and be sure that the event will not
- * be fired during that wrap.
- *
- * ```
- * const emitter: Emitter;
- * const delayer = new EventDelayer();
- * const delayedEvent = delayer.wrapEvent(emitter.event);
- *
- * delayedEvent(console.log);
- *
- * delayer.bufferEvents(() => {
- *   emitter.fire(); // event will not be fired yet
- * });
- *
- * // event will only be fired at this point
- * ```
- */
-class EventBufferer {
-    constructor() {
-        this.buffers = [];
-    }
-    wrapEvent(event) {
-        return (listener, thisArgs, disposables) => {
-            return event(i => {
-                const buffer = this.buffers[this.buffers.length - 1];
-                if (buffer) {
-                    buffer.push(() => listener.call(thisArgs, i));
-                }
-                else {
-                    listener.call(thisArgs, i);
-                }
-            }, undefined, disposables);
-        };
-    }
-    bufferEvents(fn) {
-        const buffer = [];
-        this.buffers.push(buffer);
-        const r = fn();
-        this.buffers.pop();
-        buffer.forEach(flush => flush());
-        return r;
-    }
-}
-/**
- * A Relay is an event forwarder which functions as a replugabble event pipe.
- * Once created, you can connect an input event to it and it will simply forward
- * events from that input event through its own `event` property. The `input`
- * can be changed at any point in time.
- */
-class Relay {
-    constructor() {
-        this.listening = false;
-        this.inputEvent = Event.None;
-        this.inputEventListener = Disposable.None;
-        this.emitter = new Emitter({
-            onFirstListenerDidAdd: () => {
-                this.listening = true;
-                this.inputEventListener = this.inputEvent(this.emitter.fire, this.emitter);
-            },
-            onLastListenerRemove: () => {
-                this.listening = false;
-                this.inputEventListener.dispose();
-            }
-        });
-        this.event = this.emitter.event;
-    }
-    set input(event) {
-        this.inputEvent = event;
-        if (this.listening) {
-            this.inputEventListener.dispose();
-            this.inputEventListener = event(this.emitter.fire, this.emitter);
-        }
-    }
-    dispose() {
-        this.inputEventListener.dispose();
-        this.emitter.dispose();
-    }
-}
-
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/cancellation.js
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
@@ -7537,7 +7934,6 @@ class CancellationTokenSource {
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-
 class KeyCodeStrMap {
     constructor() {
         this._keyCodeToStr = [];
@@ -7557,123 +7953,303 @@ class KeyCodeStrMap {
 const uiMap = new KeyCodeStrMap();
 const userSettingsUSMap = new KeyCodeStrMap();
 const userSettingsGeneralMap = new KeyCodeStrMap();
+const EVENT_KEY_CODE_MAP = new Array(230);
+const NATIVE_WINDOWS_KEY_CODE_TO_KEY_CODE = {};
+const scanCodeIntToStr = [];
+const scanCodeStrToInt = Object.create(null);
+const scanCodeLowerCaseStrToInt = Object.create(null);
+/**
+ * -1 if a ScanCode => KeyCode mapping depends on kb layout.
+ */
+const IMMUTABLE_CODE_TO_KEY_CODE = [];
+/**
+ * -1 if a KeyCode => ScanCode mapping depends on kb layout.
+ */
+const IMMUTABLE_KEY_CODE_TO_CODE = [];
+for (let i = 0; i <= 193 /* MAX_VALUE */; i++) {
+    IMMUTABLE_CODE_TO_KEY_CODE[i] = -1 /* DependsOnKbLayout */;
+}
+for (let i = 0; i <= 126 /* MAX_VALUE */; i++) {
+    IMMUTABLE_KEY_CODE_TO_CODE[i] = -1 /* DependsOnKbLayout */;
+}
 (function () {
-    function define(keyCode, uiLabel, usUserSettingsLabel = uiLabel, generalUserSettingsLabel = usUserSettingsLabel) {
-        uiMap.define(keyCode, uiLabel);
-        userSettingsUSMap.define(keyCode, usUserSettingsLabel);
-        userSettingsGeneralMap.define(keyCode, generalUserSettingsLabel);
+    // See https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
+    // See https://github.com/microsoft/node-native-keymap/blob/master/deps/chromium/keyboard_codes_win.h
+    const empty = '';
+    const mappings = [
+        // keyCodeOrd, immutable, scanCode, scanCodeStr, keyCode, keyCodeStr, eventKeyCode, vkey, usUserSettingsLabel, generalUserSettingsLabel
+        [0, 1, 0 /* None */, 'None', 0 /* Unknown */, 'unknown', 0, 'VK_UNKNOWN', empty, empty],
+        [0, 1, 1 /* Hyper */, 'Hyper', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 2 /* Super */, 'Super', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 3 /* Fn */, 'Fn', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 4 /* FnLock */, 'FnLock', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 5 /* Suspend */, 'Suspend', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 6 /* Resume */, 'Resume', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 7 /* Turbo */, 'Turbo', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 8 /* Sleep */, 'Sleep', 0 /* Unknown */, empty, 0, 'VK_SLEEP', empty, empty],
+        [0, 1, 9 /* WakeUp */, 'WakeUp', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [31, 0, 10 /* KeyA */, 'KeyA', 31 /* KeyA */, 'A', 65, 'VK_A', empty, empty],
+        [32, 0, 11 /* KeyB */, 'KeyB', 32 /* KeyB */, 'B', 66, 'VK_B', empty, empty],
+        [33, 0, 12 /* KeyC */, 'KeyC', 33 /* KeyC */, 'C', 67, 'VK_C', empty, empty],
+        [34, 0, 13 /* KeyD */, 'KeyD', 34 /* KeyD */, 'D', 68, 'VK_D', empty, empty],
+        [35, 0, 14 /* KeyE */, 'KeyE', 35 /* KeyE */, 'E', 69, 'VK_E', empty, empty],
+        [36, 0, 15 /* KeyF */, 'KeyF', 36 /* KeyF */, 'F', 70, 'VK_F', empty, empty],
+        [37, 0, 16 /* KeyG */, 'KeyG', 37 /* KeyG */, 'G', 71, 'VK_G', empty, empty],
+        [38, 0, 17 /* KeyH */, 'KeyH', 38 /* KeyH */, 'H', 72, 'VK_H', empty, empty],
+        [39, 0, 18 /* KeyI */, 'KeyI', 39 /* KeyI */, 'I', 73, 'VK_I', empty, empty],
+        [40, 0, 19 /* KeyJ */, 'KeyJ', 40 /* KeyJ */, 'J', 74, 'VK_J', empty, empty],
+        [41, 0, 20 /* KeyK */, 'KeyK', 41 /* KeyK */, 'K', 75, 'VK_K', empty, empty],
+        [42, 0, 21 /* KeyL */, 'KeyL', 42 /* KeyL */, 'L', 76, 'VK_L', empty, empty],
+        [43, 0, 22 /* KeyM */, 'KeyM', 43 /* KeyM */, 'M', 77, 'VK_M', empty, empty],
+        [44, 0, 23 /* KeyN */, 'KeyN', 44 /* KeyN */, 'N', 78, 'VK_N', empty, empty],
+        [45, 0, 24 /* KeyO */, 'KeyO', 45 /* KeyO */, 'O', 79, 'VK_O', empty, empty],
+        [46, 0, 25 /* KeyP */, 'KeyP', 46 /* KeyP */, 'P', 80, 'VK_P', empty, empty],
+        [47, 0, 26 /* KeyQ */, 'KeyQ', 47 /* KeyQ */, 'Q', 81, 'VK_Q', empty, empty],
+        [48, 0, 27 /* KeyR */, 'KeyR', 48 /* KeyR */, 'R', 82, 'VK_R', empty, empty],
+        [49, 0, 28 /* KeyS */, 'KeyS', 49 /* KeyS */, 'S', 83, 'VK_S', empty, empty],
+        [50, 0, 29 /* KeyT */, 'KeyT', 50 /* KeyT */, 'T', 84, 'VK_T', empty, empty],
+        [51, 0, 30 /* KeyU */, 'KeyU', 51 /* KeyU */, 'U', 85, 'VK_U', empty, empty],
+        [52, 0, 31 /* KeyV */, 'KeyV', 52 /* KeyV */, 'V', 86, 'VK_V', empty, empty],
+        [53, 0, 32 /* KeyW */, 'KeyW', 53 /* KeyW */, 'W', 87, 'VK_W', empty, empty],
+        [54, 0, 33 /* KeyX */, 'KeyX', 54 /* KeyX */, 'X', 88, 'VK_X', empty, empty],
+        [55, 0, 34 /* KeyY */, 'KeyY', 55 /* KeyY */, 'Y', 89, 'VK_Y', empty, empty],
+        [56, 0, 35 /* KeyZ */, 'KeyZ', 56 /* KeyZ */, 'Z', 90, 'VK_Z', empty, empty],
+        [22, 0, 36 /* Digit1 */, 'Digit1', 22 /* Digit1 */, '1', 49, 'VK_1', empty, empty],
+        [23, 0, 37 /* Digit2 */, 'Digit2', 23 /* Digit2 */, '2', 50, 'VK_2', empty, empty],
+        [24, 0, 38 /* Digit3 */, 'Digit3', 24 /* Digit3 */, '3', 51, 'VK_3', empty, empty],
+        [25, 0, 39 /* Digit4 */, 'Digit4', 25 /* Digit4 */, '4', 52, 'VK_4', empty, empty],
+        [26, 0, 40 /* Digit5 */, 'Digit5', 26 /* Digit5 */, '5', 53, 'VK_5', empty, empty],
+        [27, 0, 41 /* Digit6 */, 'Digit6', 27 /* Digit6 */, '6', 54, 'VK_6', empty, empty],
+        [28, 0, 42 /* Digit7 */, 'Digit7', 28 /* Digit7 */, '7', 55, 'VK_7', empty, empty],
+        [29, 0, 43 /* Digit8 */, 'Digit8', 29 /* Digit8 */, '8', 56, 'VK_8', empty, empty],
+        [30, 0, 44 /* Digit9 */, 'Digit9', 30 /* Digit9 */, '9', 57, 'VK_9', empty, empty],
+        [21, 0, 45 /* Digit0 */, 'Digit0', 21 /* Digit0 */, '0', 48, 'VK_0', empty, empty],
+        [3, 1, 46 /* Enter */, 'Enter', 3 /* Enter */, 'Enter', 13, 'VK_RETURN', empty, empty],
+        [9, 1, 47 /* Escape */, 'Escape', 9 /* Escape */, 'Escape', 27, 'VK_ESCAPE', empty, empty],
+        [1, 1, 48 /* Backspace */, 'Backspace', 1 /* Backspace */, 'Backspace', 8, 'VK_BACK', empty, empty],
+        [2, 1, 49 /* Tab */, 'Tab', 2 /* Tab */, 'Tab', 9, 'VK_TAB', empty, empty],
+        [10, 1, 50 /* Space */, 'Space', 10 /* Space */, 'Space', 32, 'VK_SPACE', empty, empty],
+        [83, 0, 51 /* Minus */, 'Minus', 83 /* Minus */, '-', 189, 'VK_OEM_MINUS', '-', 'OEM_MINUS'],
+        [81, 0, 52 /* Equal */, 'Equal', 81 /* Equal */, '=', 187, 'VK_OEM_PLUS', '=', 'OEM_PLUS'],
+        [87, 0, 53 /* BracketLeft */, 'BracketLeft', 87 /* BracketLeft */, '[', 219, 'VK_OEM_4', '[', 'OEM_4'],
+        [89, 0, 54 /* BracketRight */, 'BracketRight', 89 /* BracketRight */, ']', 221, 'VK_OEM_6', ']', 'OEM_6'],
+        [88, 0, 55 /* Backslash */, 'Backslash', 88 /* Backslash */, '\\', 220, 'VK_OEM_5', '\\', 'OEM_5'],
+        [0, 0, 56 /* IntlHash */, 'IntlHash', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [80, 0, 57 /* Semicolon */, 'Semicolon', 80 /* Semicolon */, ';', 186, 'VK_OEM_1', ';', 'OEM_1'],
+        [90, 0, 58 /* Quote */, 'Quote', 90 /* Quote */, '\'', 222, 'VK_OEM_7', '\'', 'OEM_7'],
+        [86, 0, 59 /* Backquote */, 'Backquote', 86 /* Backquote */, '`', 192, 'VK_OEM_3', '`', 'OEM_3'],
+        [82, 0, 60 /* Comma */, 'Comma', 82 /* Comma */, ',', 188, 'VK_OEM_COMMA', ',', 'OEM_COMMA'],
+        [84, 0, 61 /* Period */, 'Period', 84 /* Period */, '.', 190, 'VK_OEM_PERIOD', '.', 'OEM_PERIOD'],
+        [85, 0, 62 /* Slash */, 'Slash', 85 /* Slash */, '/', 191, 'VK_OEM_2', '/', 'OEM_2'],
+        [8, 1, 63 /* CapsLock */, 'CapsLock', 8 /* CapsLock */, 'CapsLock', 20, 'VK_CAPITAL', empty, empty],
+        [59, 1, 64 /* F1 */, 'F1', 59 /* F1 */, 'F1', 112, 'VK_F1', empty, empty],
+        [60, 1, 65 /* F2 */, 'F2', 60 /* F2 */, 'F2', 113, 'VK_F2', empty, empty],
+        [61, 1, 66 /* F3 */, 'F3', 61 /* F3 */, 'F3', 114, 'VK_F3', empty, empty],
+        [62, 1, 67 /* F4 */, 'F4', 62 /* F4 */, 'F4', 115, 'VK_F4', empty, empty],
+        [63, 1, 68 /* F5 */, 'F5', 63 /* F5 */, 'F5', 116, 'VK_F5', empty, empty],
+        [64, 1, 69 /* F6 */, 'F6', 64 /* F6 */, 'F6', 117, 'VK_F6', empty, empty],
+        [65, 1, 70 /* F7 */, 'F7', 65 /* F7 */, 'F7', 118, 'VK_F7', empty, empty],
+        [66, 1, 71 /* F8 */, 'F8', 66 /* F8 */, 'F8', 119, 'VK_F8', empty, empty],
+        [67, 1, 72 /* F9 */, 'F9', 67 /* F9 */, 'F9', 120, 'VK_F9', empty, empty],
+        [68, 1, 73 /* F10 */, 'F10', 68 /* F10 */, 'F10', 121, 'VK_F10', empty, empty],
+        [69, 1, 74 /* F11 */, 'F11', 69 /* F11 */, 'F11', 122, 'VK_F11', empty, empty],
+        [70, 1, 75 /* F12 */, 'F12', 70 /* F12 */, 'F12', 123, 'VK_F12', empty, empty],
+        [0, 1, 76 /* PrintScreen */, 'PrintScreen', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [79, 1, 77 /* ScrollLock */, 'ScrollLock', 79 /* ScrollLock */, 'ScrollLock', 145, 'VK_SCROLL', empty, empty],
+        [7, 1, 78 /* Pause */, 'Pause', 7 /* PauseBreak */, 'PauseBreak', 19, 'VK_PAUSE', empty, empty],
+        [19, 1, 79 /* Insert */, 'Insert', 19 /* Insert */, 'Insert', 45, 'VK_INSERT', empty, empty],
+        [14, 1, 80 /* Home */, 'Home', 14 /* Home */, 'Home', 36, 'VK_HOME', empty, empty],
+        [11, 1, 81 /* PageUp */, 'PageUp', 11 /* PageUp */, 'PageUp', 33, 'VK_PRIOR', empty, empty],
+        [20, 1, 82 /* Delete */, 'Delete', 20 /* Delete */, 'Delete', 46, 'VK_DELETE', empty, empty],
+        [13, 1, 83 /* End */, 'End', 13 /* End */, 'End', 35, 'VK_END', empty, empty],
+        [12, 1, 84 /* PageDown */, 'PageDown', 12 /* PageDown */, 'PageDown', 34, 'VK_NEXT', empty, empty],
+        [17, 1, 85 /* ArrowRight */, 'ArrowRight', 17 /* RightArrow */, 'RightArrow', 39, 'VK_RIGHT', 'Right', empty],
+        [15, 1, 86 /* ArrowLeft */, 'ArrowLeft', 15 /* LeftArrow */, 'LeftArrow', 37, 'VK_LEFT', 'Left', empty],
+        [18, 1, 87 /* ArrowDown */, 'ArrowDown', 18 /* DownArrow */, 'DownArrow', 40, 'VK_DOWN', 'Down', empty],
+        [16, 1, 88 /* ArrowUp */, 'ArrowUp', 16 /* UpArrow */, 'UpArrow', 38, 'VK_UP', 'Up', empty],
+        [78, 1, 89 /* NumLock */, 'NumLock', 78 /* NumLock */, 'NumLock', 144, 'VK_NUMLOCK', empty, empty],
+        [108, 1, 90 /* NumpadDivide */, 'NumpadDivide', 108 /* NumpadDivide */, 'NumPad_Divide', 111, 'VK_DIVIDE', empty, empty],
+        [103, 1, 91 /* NumpadMultiply */, 'NumpadMultiply', 103 /* NumpadMultiply */, 'NumPad_Multiply', 106, 'VK_MULTIPLY', empty, empty],
+        [106, 1, 92 /* NumpadSubtract */, 'NumpadSubtract', 106 /* NumpadSubtract */, 'NumPad_Subtract', 109, 'VK_SUBTRACT', empty, empty],
+        [104, 1, 93 /* NumpadAdd */, 'NumpadAdd', 104 /* NumpadAdd */, 'NumPad_Add', 107, 'VK_ADD', empty, empty],
+        [3, 1, 94 /* NumpadEnter */, 'NumpadEnter', 3 /* Enter */, empty, 0, empty, empty, empty],
+        [94, 1, 95 /* Numpad1 */, 'Numpad1', 94 /* Numpad1 */, 'NumPad1', 97, 'VK_NUMPAD1', empty, empty],
+        [95, 1, 96 /* Numpad2 */, 'Numpad2', 95 /* Numpad2 */, 'NumPad2', 98, 'VK_NUMPAD2', empty, empty],
+        [96, 1, 97 /* Numpad3 */, 'Numpad3', 96 /* Numpad3 */, 'NumPad3', 99, 'VK_NUMPAD3', empty, empty],
+        [97, 1, 98 /* Numpad4 */, 'Numpad4', 97 /* Numpad4 */, 'NumPad4', 100, 'VK_NUMPAD4', empty, empty],
+        [98, 1, 99 /* Numpad5 */, 'Numpad5', 98 /* Numpad5 */, 'NumPad5', 101, 'VK_NUMPAD5', empty, empty],
+        [99, 1, 100 /* Numpad6 */, 'Numpad6', 99 /* Numpad6 */, 'NumPad6', 102, 'VK_NUMPAD6', empty, empty],
+        [100, 1, 101 /* Numpad7 */, 'Numpad7', 100 /* Numpad7 */, 'NumPad7', 103, 'VK_NUMPAD7', empty, empty],
+        [101, 1, 102 /* Numpad8 */, 'Numpad8', 101 /* Numpad8 */, 'NumPad8', 104, 'VK_NUMPAD8', empty, empty],
+        [102, 1, 103 /* Numpad9 */, 'Numpad9', 102 /* Numpad9 */, 'NumPad9', 105, 'VK_NUMPAD9', empty, empty],
+        [93, 1, 104 /* Numpad0 */, 'Numpad0', 93 /* Numpad0 */, 'NumPad0', 96, 'VK_NUMPAD0', empty, empty],
+        [107, 1, 105 /* NumpadDecimal */, 'NumpadDecimal', 107 /* NumpadDecimal */, 'NumPad_Decimal', 110, 'VK_DECIMAL', empty, empty],
+        [92, 0, 106 /* IntlBackslash */, 'IntlBackslash', 92 /* IntlBackslash */, 'OEM_102', 226, 'VK_OEM_102', empty, empty],
+        [58, 1, 107 /* ContextMenu */, 'ContextMenu', 58 /* ContextMenu */, 'ContextMenu', 93, empty, empty, empty],
+        [0, 1, 108 /* Power */, 'Power', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 109 /* NumpadEqual */, 'NumpadEqual', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [71, 1, 110 /* F13 */, 'F13', 71 /* F13 */, 'F13', 124, 'VK_F13', empty, empty],
+        [72, 1, 111 /* F14 */, 'F14', 72 /* F14 */, 'F14', 125, 'VK_F14', empty, empty],
+        [73, 1, 112 /* F15 */, 'F15', 73 /* F15 */, 'F15', 126, 'VK_F15', empty, empty],
+        [74, 1, 113 /* F16 */, 'F16', 74 /* F16 */, 'F16', 127, 'VK_F16', empty, empty],
+        [75, 1, 114 /* F17 */, 'F17', 75 /* F17 */, 'F17', 128, 'VK_F17', empty, empty],
+        [76, 1, 115 /* F18 */, 'F18', 76 /* F18 */, 'F18', 129, 'VK_F18', empty, empty],
+        [77, 1, 116 /* F19 */, 'F19', 77 /* F19 */, 'F19', 130, 'VK_F19', empty, empty],
+        [0, 1, 117 /* F20 */, 'F20', 0 /* Unknown */, empty, 0, 'VK_F20', empty, empty],
+        [0, 1, 118 /* F21 */, 'F21', 0 /* Unknown */, empty, 0, 'VK_F21', empty, empty],
+        [0, 1, 119 /* F22 */, 'F22', 0 /* Unknown */, empty, 0, 'VK_F22', empty, empty],
+        [0, 1, 120 /* F23 */, 'F23', 0 /* Unknown */, empty, 0, 'VK_F23', empty, empty],
+        [0, 1, 121 /* F24 */, 'F24', 0 /* Unknown */, empty, 0, 'VK_F24', empty, empty],
+        [0, 1, 122 /* Open */, 'Open', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 123 /* Help */, 'Help', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 124 /* Select */, 'Select', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 125 /* Again */, 'Again', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 126 /* Undo */, 'Undo', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 127 /* Cut */, 'Cut', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 128 /* Copy */, 'Copy', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 129 /* Paste */, 'Paste', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 130 /* Find */, 'Find', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 131 /* AudioVolumeMute */, 'AudioVolumeMute', 112 /* AudioVolumeMute */, 'AudioVolumeMute', 173, 'VK_VOLUME_MUTE', empty, empty],
+        [0, 1, 132 /* AudioVolumeUp */, 'AudioVolumeUp', 113 /* AudioVolumeUp */, 'AudioVolumeUp', 175, 'VK_VOLUME_UP', empty, empty],
+        [0, 1, 133 /* AudioVolumeDown */, 'AudioVolumeDown', 114 /* AudioVolumeDown */, 'AudioVolumeDown', 174, 'VK_VOLUME_DOWN', empty, empty],
+        [105, 1, 134 /* NumpadComma */, 'NumpadComma', 105 /* NUMPAD_SEPARATOR */, 'NumPad_Separator', 108, 'VK_SEPARATOR', empty, empty],
+        [110, 0, 135 /* IntlRo */, 'IntlRo', 110 /* ABNT_C1 */, 'ABNT_C1', 193, 'VK_ABNT_C1', empty, empty],
+        [0, 1, 136 /* KanaMode */, 'KanaMode', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 0, 137 /* IntlYen */, 'IntlYen', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 138 /* Convert */, 'Convert', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 139 /* NonConvert */, 'NonConvert', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 140 /* Lang1 */, 'Lang1', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 141 /* Lang2 */, 'Lang2', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 142 /* Lang3 */, 'Lang3', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 143 /* Lang4 */, 'Lang4', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 144 /* Lang5 */, 'Lang5', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 145 /* Abort */, 'Abort', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 146 /* Props */, 'Props', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 147 /* NumpadParenLeft */, 'NumpadParenLeft', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 148 /* NumpadParenRight */, 'NumpadParenRight', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 149 /* NumpadBackspace */, 'NumpadBackspace', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 150 /* NumpadMemoryStore */, 'NumpadMemoryStore', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 151 /* NumpadMemoryRecall */, 'NumpadMemoryRecall', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 152 /* NumpadMemoryClear */, 'NumpadMemoryClear', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 153 /* NumpadMemoryAdd */, 'NumpadMemoryAdd', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 154 /* NumpadMemorySubtract */, 'NumpadMemorySubtract', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 155 /* NumpadClear */, 'NumpadClear', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 156 /* NumpadClearEntry */, 'NumpadClearEntry', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [5, 1, 0 /* None */, empty, 5 /* Ctrl */, 'Ctrl', 17, 'VK_CONTROL', empty, empty],
+        [4, 1, 0 /* None */, empty, 4 /* Shift */, 'Shift', 16, 'VK_SHIFT', empty, empty],
+        [6, 1, 0 /* None */, empty, 6 /* Alt */, 'Alt', 18, 'VK_MENU', empty, empty],
+        [57, 1, 0 /* None */, empty, 57 /* Meta */, 'Meta', 0, 'VK_COMMAND', empty, empty],
+        [5, 1, 157 /* ControlLeft */, 'ControlLeft', 5 /* Ctrl */, empty, 0, 'VK_LCONTROL', empty, empty],
+        [4, 1, 158 /* ShiftLeft */, 'ShiftLeft', 4 /* Shift */, empty, 0, 'VK_LSHIFT', empty, empty],
+        [6, 1, 159 /* AltLeft */, 'AltLeft', 6 /* Alt */, empty, 0, 'VK_LMENU', empty, empty],
+        [57, 1, 160 /* MetaLeft */, 'MetaLeft', 57 /* Meta */, empty, 0, 'VK_LWIN', empty, empty],
+        [5, 1, 161 /* ControlRight */, 'ControlRight', 5 /* Ctrl */, empty, 0, 'VK_RCONTROL', empty, empty],
+        [4, 1, 162 /* ShiftRight */, 'ShiftRight', 4 /* Shift */, empty, 0, 'VK_RSHIFT', empty, empty],
+        [6, 1, 163 /* AltRight */, 'AltRight', 6 /* Alt */, empty, 0, 'VK_RMENU', empty, empty],
+        [57, 1, 164 /* MetaRight */, 'MetaRight', 57 /* Meta */, empty, 0, 'VK_RWIN', empty, empty],
+        [0, 1, 165 /* BrightnessUp */, 'BrightnessUp', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 166 /* BrightnessDown */, 'BrightnessDown', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 167 /* MediaPlay */, 'MediaPlay', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 168 /* MediaRecord */, 'MediaRecord', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 169 /* MediaFastForward */, 'MediaFastForward', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 170 /* MediaRewind */, 'MediaRewind', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [114, 1, 171 /* MediaTrackNext */, 'MediaTrackNext', 119 /* MediaTrackNext */, 'MediaTrackNext', 176, 'VK_MEDIA_NEXT_TRACK', empty, empty],
+        [115, 1, 172 /* MediaTrackPrevious */, 'MediaTrackPrevious', 120 /* MediaTrackPrevious */, 'MediaTrackPrevious', 177, 'VK_MEDIA_PREV_TRACK', empty, empty],
+        [116, 1, 173 /* MediaStop */, 'MediaStop', 121 /* MediaStop */, 'MediaStop', 178, 'VK_MEDIA_STOP', empty, empty],
+        [0, 1, 174 /* Eject */, 'Eject', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [117, 1, 175 /* MediaPlayPause */, 'MediaPlayPause', 122 /* MediaPlayPause */, 'MediaPlayPause', 179, 'VK_MEDIA_PLAY_PAUSE', empty, empty],
+        [0, 1, 176 /* MediaSelect */, 'MediaSelect', 123 /* LaunchMediaPlayer */, 'LaunchMediaPlayer', 181, 'VK_MEDIA_LAUNCH_MEDIA_SELECT', empty, empty],
+        [0, 1, 177 /* LaunchMail */, 'LaunchMail', 124 /* LaunchMail */, 'LaunchMail', 180, 'VK_MEDIA_LAUNCH_MAIL', empty, empty],
+        [0, 1, 178 /* LaunchApp2 */, 'LaunchApp2', 125 /* LaunchApp2 */, 'LaunchApp2', 183, 'VK_MEDIA_LAUNCH_APP2', empty, empty],
+        [0, 1, 179 /* LaunchApp1 */, 'LaunchApp1', 0 /* Unknown */, empty, 0, 'VK_MEDIA_LAUNCH_APP1', empty, empty],
+        [0, 1, 180 /* SelectTask */, 'SelectTask', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 181 /* LaunchScreenSaver */, 'LaunchScreenSaver', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 182 /* BrowserSearch */, 'BrowserSearch', 115 /* BrowserSearch */, 'BrowserSearch', 170, 'VK_BROWSER_SEARCH', empty, empty],
+        [0, 1, 183 /* BrowserHome */, 'BrowserHome', 116 /* BrowserHome */, 'BrowserHome', 172, 'VK_BROWSER_HOME', empty, empty],
+        [112, 1, 184 /* BrowserBack */, 'BrowserBack', 117 /* BrowserBack */, 'BrowserBack', 166, 'VK_BROWSER_BACK', empty, empty],
+        [113, 1, 185 /* BrowserForward */, 'BrowserForward', 118 /* BrowserForward */, 'BrowserForward', 167, 'VK_BROWSER_FORWARD', empty, empty],
+        [0, 1, 186 /* BrowserStop */, 'BrowserStop', 0 /* Unknown */, empty, 0, 'VK_BROWSER_STOP', empty, empty],
+        [0, 1, 187 /* BrowserRefresh */, 'BrowserRefresh', 0 /* Unknown */, empty, 0, 'VK_BROWSER_REFRESH', empty, empty],
+        [0, 1, 188 /* BrowserFavorites */, 'BrowserFavorites', 0 /* Unknown */, empty, 0, 'VK_BROWSER_FAVORITES', empty, empty],
+        [0, 1, 189 /* ZoomToggle */, 'ZoomToggle', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 190 /* MailReply */, 'MailReply', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 191 /* MailForward */, 'MailForward', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        [0, 1, 192 /* MailSend */, 'MailSend', 0 /* Unknown */, empty, 0, empty, empty, empty],
+        // See https://lists.w3.org/Archives/Public/www-dom/2010JulSep/att-0182/keyCode-spec.html
+        // If an Input Method Editor is processing key input and the event is keydown, return 229.
+        [109, 1, 0 /* None */, empty, 109 /* KEY_IN_COMPOSITION */, 'KeyInComposition', 229, empty, empty, empty],
+        [111, 1, 0 /* None */, empty, 111 /* ABNT_C2 */, 'ABNT_C2', 194, 'VK_ABNT_C2', empty, empty],
+        [91, 1, 0 /* None */, empty, 91 /* OEM_8 */, 'OEM_8', 223, 'VK_OEM_8', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_CLEAR', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_KANA', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_HANGUL', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_JUNJA', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_FINAL', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_HANJA', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_KANJI', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_CONVERT', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_NONCONVERT', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_ACCEPT', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_MODECHANGE', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_SELECT', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_PRINT', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_EXECUTE', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_SNAPSHOT', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_HELP', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_APPS', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_PROCESSKEY', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_PACKET', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_DBE_SBCSCHAR', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_DBE_DBCSCHAR', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_ATTN', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_CRSEL', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_EXSEL', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_EREOF', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_PLAY', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_ZOOM', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_NONAME', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_PA1', empty, empty],
+        [0, 1, 0 /* None */, empty, 0 /* Unknown */, empty, 0, 'VK_OEM_CLEAR', empty, empty],
+    ];
+    let seenKeyCode = [];
+    let seenScanCode = [];
+    for (const mapping of mappings) {
+        const [_keyCodeOrd, immutable, scanCode, scanCodeStr, keyCode, keyCodeStr, eventKeyCode, vkey, usUserSettingsLabel, generalUserSettingsLabel] = mapping;
+        if (!seenScanCode[scanCode]) {
+            seenScanCode[scanCode] = true;
+            scanCodeIntToStr[scanCode] = scanCodeStr;
+            scanCodeStrToInt[scanCodeStr] = scanCode;
+            scanCodeLowerCaseStrToInt[scanCodeStr.toLowerCase()] = scanCode;
+            if (immutable) {
+                IMMUTABLE_CODE_TO_KEY_CODE[scanCode] = keyCode;
+                if ((keyCode !== 0 /* Unknown */)
+                    && (keyCode !== 3 /* Enter */)
+                    && (keyCode !== 5 /* Ctrl */)
+                    && (keyCode !== 4 /* Shift */)
+                    && (keyCode !== 6 /* Alt */)
+                    && (keyCode !== 57 /* Meta */)) {
+                    IMMUTABLE_KEY_CODE_TO_CODE[keyCode] = scanCode;
+                }
+            }
+        }
+        if (!seenKeyCode[keyCode]) {
+            seenKeyCode[keyCode] = true;
+            if (!keyCodeStr) {
+                throw new Error(`String representation missing for key code ${keyCode} around scan code ${scanCodeStr}`);
+            }
+            uiMap.define(keyCode, keyCodeStr);
+            userSettingsUSMap.define(keyCode, usUserSettingsLabel || keyCodeStr);
+            userSettingsGeneralMap.define(keyCode, generalUserSettingsLabel || usUserSettingsLabel || keyCodeStr);
+        }
+        if (eventKeyCode) {
+            EVENT_KEY_CODE_MAP[eventKeyCode] = keyCode;
+        }
+        if (vkey) {
+            NATIVE_WINDOWS_KEY_CODE_TO_KEY_CODE[vkey] = keyCode;
+        }
     }
-    define(0 /* Unknown */, 'unknown');
-    define(1 /* Backspace */, 'Backspace');
-    define(2 /* Tab */, 'Tab');
-    define(3 /* Enter */, 'Enter');
-    define(4 /* Shift */, 'Shift');
-    define(5 /* Ctrl */, 'Ctrl');
-    define(6 /* Alt */, 'Alt');
-    define(7 /* PauseBreak */, 'PauseBreak');
-    define(8 /* CapsLock */, 'CapsLock');
-    define(9 /* Escape */, 'Escape');
-    define(10 /* Space */, 'Space');
-    define(11 /* PageUp */, 'PageUp');
-    define(12 /* PageDown */, 'PageDown');
-    define(13 /* End */, 'End');
-    define(14 /* Home */, 'Home');
-    define(15 /* LeftArrow */, 'LeftArrow', 'Left');
-    define(16 /* UpArrow */, 'UpArrow', 'Up');
-    define(17 /* RightArrow */, 'RightArrow', 'Right');
-    define(18 /* DownArrow */, 'DownArrow', 'Down');
-    define(19 /* Insert */, 'Insert');
-    define(20 /* Delete */, 'Delete');
-    define(21 /* KEY_0 */, '0');
-    define(22 /* KEY_1 */, '1');
-    define(23 /* KEY_2 */, '2');
-    define(24 /* KEY_3 */, '3');
-    define(25 /* KEY_4 */, '4');
-    define(26 /* KEY_5 */, '5');
-    define(27 /* KEY_6 */, '6');
-    define(28 /* KEY_7 */, '7');
-    define(29 /* KEY_8 */, '8');
-    define(30 /* KEY_9 */, '9');
-    define(31 /* KEY_A */, 'A');
-    define(32 /* KEY_B */, 'B');
-    define(33 /* KEY_C */, 'C');
-    define(34 /* KEY_D */, 'D');
-    define(35 /* KEY_E */, 'E');
-    define(36 /* KEY_F */, 'F');
-    define(37 /* KEY_G */, 'G');
-    define(38 /* KEY_H */, 'H');
-    define(39 /* KEY_I */, 'I');
-    define(40 /* KEY_J */, 'J');
-    define(41 /* KEY_K */, 'K');
-    define(42 /* KEY_L */, 'L');
-    define(43 /* KEY_M */, 'M');
-    define(44 /* KEY_N */, 'N');
-    define(45 /* KEY_O */, 'O');
-    define(46 /* KEY_P */, 'P');
-    define(47 /* KEY_Q */, 'Q');
-    define(48 /* KEY_R */, 'R');
-    define(49 /* KEY_S */, 'S');
-    define(50 /* KEY_T */, 'T');
-    define(51 /* KEY_U */, 'U');
-    define(52 /* KEY_V */, 'V');
-    define(53 /* KEY_W */, 'W');
-    define(54 /* KEY_X */, 'X');
-    define(55 /* KEY_Y */, 'Y');
-    define(56 /* KEY_Z */, 'Z');
-    define(57 /* Meta */, 'Meta');
-    define(58 /* ContextMenu */, 'ContextMenu');
-    define(59 /* F1 */, 'F1');
-    define(60 /* F2 */, 'F2');
-    define(61 /* F3 */, 'F3');
-    define(62 /* F4 */, 'F4');
-    define(63 /* F5 */, 'F5');
-    define(64 /* F6 */, 'F6');
-    define(65 /* F7 */, 'F7');
-    define(66 /* F8 */, 'F8');
-    define(67 /* F9 */, 'F9');
-    define(68 /* F10 */, 'F10');
-    define(69 /* F11 */, 'F11');
-    define(70 /* F12 */, 'F12');
-    define(71 /* F13 */, 'F13');
-    define(72 /* F14 */, 'F14');
-    define(73 /* F15 */, 'F15');
-    define(74 /* F16 */, 'F16');
-    define(75 /* F17 */, 'F17');
-    define(76 /* F18 */, 'F18');
-    define(77 /* F19 */, 'F19');
-    define(78 /* NumLock */, 'NumLock');
-    define(79 /* ScrollLock */, 'ScrollLock');
-    define(80 /* US_SEMICOLON */, ';', ';', 'OEM_1');
-    define(81 /* US_EQUAL */, '=', '=', 'OEM_PLUS');
-    define(82 /* US_COMMA */, ',', ',', 'OEM_COMMA');
-    define(83 /* US_MINUS */, '-', '-', 'OEM_MINUS');
-    define(84 /* US_DOT */, '.', '.', 'OEM_PERIOD');
-    define(85 /* US_SLASH */, '/', '/', 'OEM_2');
-    define(86 /* US_BACKTICK */, '`', '`', 'OEM_3');
-    define(110 /* ABNT_C1 */, 'ABNT_C1');
-    define(111 /* ABNT_C2 */, 'ABNT_C2');
-    define(87 /* US_OPEN_SQUARE_BRACKET */, '[', '[', 'OEM_4');
-    define(88 /* US_BACKSLASH */, '\\', '\\', 'OEM_5');
-    define(89 /* US_CLOSE_SQUARE_BRACKET */, ']', ']', 'OEM_6');
-    define(90 /* US_QUOTE */, '\'', '\'', 'OEM_7');
-    define(91 /* OEM_8 */, 'OEM_8');
-    define(92 /* OEM_102 */, 'OEM_102');
-    define(93 /* NUMPAD_0 */, 'NumPad0');
-    define(94 /* NUMPAD_1 */, 'NumPad1');
-    define(95 /* NUMPAD_2 */, 'NumPad2');
-    define(96 /* NUMPAD_3 */, 'NumPad3');
-    define(97 /* NUMPAD_4 */, 'NumPad4');
-    define(98 /* NUMPAD_5 */, 'NumPad5');
-    define(99 /* NUMPAD_6 */, 'NumPad6');
-    define(100 /* NUMPAD_7 */, 'NumPad7');
-    define(101 /* NUMPAD_8 */, 'NumPad8');
-    define(102 /* NUMPAD_9 */, 'NumPad9');
-    define(103 /* NUMPAD_MULTIPLY */, 'NumPad_Multiply');
-    define(104 /* NUMPAD_ADD */, 'NumPad_Add');
-    define(105 /* NUMPAD_SEPARATOR */, 'NumPad_Separator');
-    define(106 /* NUMPAD_SUBTRACT */, 'NumPad_Subtract');
-    define(107 /* NUMPAD_DECIMAL */, 'NumPad_Decimal');
-    define(108 /* NUMPAD_DIVIDE */, 'NumPad_Divide');
+    // Manually added due to the exclusion above (due to duplication with NumpadEnter)
+    IMMUTABLE_KEY_CODE_TO_CODE[3 /* Enter */] = 46 /* Enter */;
 })();
 var KeyCodeUtils;
 (function (KeyCodeUtils) {
@@ -7697,92 +8273,35 @@ var KeyCodeUtils;
         return userSettingsUSMap.strToKeyCode(key) || userSettingsGeneralMap.strToKeyCode(key);
     }
     KeyCodeUtils.fromUserSettings = fromUserSettings;
+    function toElectronAccelerator(keyCode) {
+        if (keyCode >= 93 /* Numpad0 */ && keyCode <= 108 /* NumpadDivide */) {
+            // [Electron Accelerators] Electron is able to parse numpad keys, but unfortunately it
+            // renders them just as regular keys in menus. For example, num0 is rendered as "0",
+            // numdiv is rendered as "/", numsub is rendered as "-".
+            //
+            // This can lead to incredible confusion, as it makes numpad based keybindings indistinguishable
+            // from keybindings based on regular keys.
+            //
+            // We therefore need to fall back to custom rendering for numpad keys.
+            return null;
+        }
+        switch (keyCode) {
+            case 16 /* UpArrow */:
+                return 'Up';
+            case 18 /* DownArrow */:
+                return 'Down';
+            case 15 /* LeftArrow */:
+                return 'Left';
+            case 17 /* RightArrow */:
+                return 'Right';
+        }
+        return uiMap.keyCodeToStr(keyCode);
+    }
+    KeyCodeUtils.toElectronAccelerator = toElectronAccelerator;
 })(KeyCodeUtils || (KeyCodeUtils = {}));
 function KeyChord(firstPart, secondPart) {
     const chordPart = ((secondPart & 0x0000FFFF) << 16) >>> 0;
     return (firstPart | chordPart) >>> 0;
-}
-function createKeybinding(keybinding, OS) {
-    if (keybinding === 0) {
-        return null;
-    }
-    const firstPart = (keybinding & 0x0000FFFF) >>> 0;
-    const chordPart = (keybinding & 0xFFFF0000) >>> 16;
-    if (chordPart !== 0) {
-        return new ChordKeybinding([
-            createSimpleKeybinding(firstPart, OS),
-            createSimpleKeybinding(chordPart, OS)
-        ]);
-    }
-    return new ChordKeybinding([createSimpleKeybinding(firstPart, OS)]);
-}
-function createSimpleKeybinding(keybinding, OS) {
-    const ctrlCmd = (keybinding & 2048 /* CtrlCmd */ ? true : false);
-    const winCtrl = (keybinding & 256 /* WinCtrl */ ? true : false);
-    const ctrlKey = (OS === 2 /* Macintosh */ ? winCtrl : ctrlCmd);
-    const shiftKey = (keybinding & 1024 /* Shift */ ? true : false);
-    const altKey = (keybinding & 512 /* Alt */ ? true : false);
-    const metaKey = (OS === 2 /* Macintosh */ ? ctrlCmd : winCtrl);
-    const keyCode = (keybinding & 255 /* KeyCode */);
-    return new SimpleKeybinding(ctrlKey, shiftKey, altKey, metaKey, keyCode);
-}
-class SimpleKeybinding {
-    constructor(ctrlKey, shiftKey, altKey, metaKey, keyCode) {
-        this.ctrlKey = ctrlKey;
-        this.shiftKey = shiftKey;
-        this.altKey = altKey;
-        this.metaKey = metaKey;
-        this.keyCode = keyCode;
-    }
-    equals(other) {
-        return (this.ctrlKey === other.ctrlKey
-            && this.shiftKey === other.shiftKey
-            && this.altKey === other.altKey
-            && this.metaKey === other.metaKey
-            && this.keyCode === other.keyCode);
-    }
-    isModifierKey() {
-        return (this.keyCode === 0 /* Unknown */
-            || this.keyCode === 5 /* Ctrl */
-            || this.keyCode === 57 /* Meta */
-            || this.keyCode === 6 /* Alt */
-            || this.keyCode === 4 /* Shift */);
-    }
-    toChord() {
-        return new ChordKeybinding([this]);
-    }
-    /**
-     * Does this keybinding refer to the key code of a modifier and it also has the modifier flag?
-     */
-    isDuplicateModifierCase() {
-        return ((this.ctrlKey && this.keyCode === 5 /* Ctrl */)
-            || (this.shiftKey && this.keyCode === 4 /* Shift */)
-            || (this.altKey && this.keyCode === 6 /* Alt */)
-            || (this.metaKey && this.keyCode === 57 /* Meta */));
-    }
-}
-class ChordKeybinding {
-    constructor(parts) {
-        if (parts.length === 0) {
-            throw illegalArgument(`parts`);
-        }
-        this.parts = parts;
-    }
-}
-class ResolvedKeybindingPart {
-    constructor(ctrlKey, shiftKey, altKey, metaKey, kbLabel, kbAriaLabel) {
-        this.ctrlKey = ctrlKey;
-        this.shiftKey = shiftKey;
-        this.altKey = altKey;
-        this.metaKey = metaKey;
-        this.keyLabel = kbLabel;
-        this.keyAriaLabel = kbAriaLabel;
-    }
-}
-/**
- * A resolved keybinding. Can be a simple keybinding or a chord keybinding.
- */
-class ResolvedKeybinding {
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/common/core/selection.js
@@ -7796,7 +8315,7 @@ class ResolvedKeybinding {
  * A selection in the editor.
  * The selection is a range that has an orientation.
  */
-class Selection extends Range {
+class Selection extends range_Range {
     constructor(selectionStartLineNumber, selectionStartColumn, positionLineNumber, positionColumn) {
         super(selectionStartLineNumber, selectionStartColumn, positionLineNumber, positionColumn);
         this.selectionStartLineNumber = selectionStartLineNumber;
@@ -7847,7 +8366,13 @@ class Selection extends Range {
      * Get the position at `positionLineNumber` and `positionColumn`.
      */
     getPosition() {
-        return new Position(this.positionLineNumber, this.positionColumn);
+        return new position_Position(this.positionLineNumber, this.positionColumn);
+    }
+    /**
+     * Get the position at the start of the selection.
+    */
+    getSelectionStart() {
+        return new position_Position(this.selectionStartLineNumber, this.selectionStartColumn);
     }
     /**
      * Create a new selection with a different `selectionStartLineNumber` and `selectionStartColumn`.
@@ -7864,6 +8389,17 @@ class Selection extends Range {
      */
     static fromPositions(start, end = start) {
         return new Selection(start.lineNumber, start.column, end.lineNumber, end.column);
+    }
+    /**
+     * Creates a `Selection` from a range, given a direction.
+     */
+    static fromRange(range, direction) {
+        if (direction === 0 /* LTR */) {
+            return new Selection(range.startLineNumber, range.startColumn, range.endLineNumber, range.endColumn);
+        }
+        else {
+            return new Selection(range.endLineNumber, range.endColumn, range.startLineNumber, range.startColumn);
+        }
     }
     /**
      * Create a `Selection` from an `ISelection`.
@@ -7919,7 +8455,8 @@ class Selection extends Range {
  *--------------------------------------------------------------------------------------------*/
 class Token {
     constructor(offset, type, language) {
-        this.offset = offset | 0; // @perf
+        this._tokenBrand = undefined;
+        this.offset = offset;
         this.type = type;
         this.language = language;
     }
@@ -7929,12 +8466,14 @@ class Token {
 }
 class TokenizationResult {
     constructor(tokens, endState) {
+        this._tokenizationResultBrand = undefined;
         this.tokens = tokens;
         this.endState = endState;
     }
 }
 class TokenizationResult2 {
     constructor(tokens, endState) {
+        this._tokenizationResult2Brand = undefined;
         this.tokens = tokens;
         this.endState = endState;
     }
@@ -8114,119 +8653,132 @@ var EditorOption;
     EditorOption[EditorOption["accessibilityPageSize"] = 3] = "accessibilityPageSize";
     EditorOption[EditorOption["ariaLabel"] = 4] = "ariaLabel";
     EditorOption[EditorOption["autoClosingBrackets"] = 5] = "autoClosingBrackets";
-    EditorOption[EditorOption["autoClosingOvertype"] = 6] = "autoClosingOvertype";
-    EditorOption[EditorOption["autoClosingQuotes"] = 7] = "autoClosingQuotes";
-    EditorOption[EditorOption["autoIndent"] = 8] = "autoIndent";
-    EditorOption[EditorOption["automaticLayout"] = 9] = "automaticLayout";
-    EditorOption[EditorOption["autoSurround"] = 10] = "autoSurround";
-    EditorOption[EditorOption["codeLens"] = 11] = "codeLens";
-    EditorOption[EditorOption["colorDecorators"] = 12] = "colorDecorators";
-    EditorOption[EditorOption["columnSelection"] = 13] = "columnSelection";
-    EditorOption[EditorOption["comments"] = 14] = "comments";
-    EditorOption[EditorOption["contextmenu"] = 15] = "contextmenu";
-    EditorOption[EditorOption["copyWithSyntaxHighlighting"] = 16] = "copyWithSyntaxHighlighting";
-    EditorOption[EditorOption["cursorBlinking"] = 17] = "cursorBlinking";
-    EditorOption[EditorOption["cursorSmoothCaretAnimation"] = 18] = "cursorSmoothCaretAnimation";
-    EditorOption[EditorOption["cursorStyle"] = 19] = "cursorStyle";
-    EditorOption[EditorOption["cursorSurroundingLines"] = 20] = "cursorSurroundingLines";
-    EditorOption[EditorOption["cursorSurroundingLinesStyle"] = 21] = "cursorSurroundingLinesStyle";
-    EditorOption[EditorOption["cursorWidth"] = 22] = "cursorWidth";
-    EditorOption[EditorOption["disableLayerHinting"] = 23] = "disableLayerHinting";
-    EditorOption[EditorOption["disableMonospaceOptimizations"] = 24] = "disableMonospaceOptimizations";
-    EditorOption[EditorOption["dragAndDrop"] = 25] = "dragAndDrop";
-    EditorOption[EditorOption["emptySelectionClipboard"] = 26] = "emptySelectionClipboard";
-    EditorOption[EditorOption["extraEditorClassName"] = 27] = "extraEditorClassName";
-    EditorOption[EditorOption["fastScrollSensitivity"] = 28] = "fastScrollSensitivity";
-    EditorOption[EditorOption["find"] = 29] = "find";
-    EditorOption[EditorOption["fixedOverflowWidgets"] = 30] = "fixedOverflowWidgets";
-    EditorOption[EditorOption["folding"] = 31] = "folding";
-    EditorOption[EditorOption["foldingStrategy"] = 32] = "foldingStrategy";
-    EditorOption[EditorOption["foldingHighlight"] = 33] = "foldingHighlight";
-    EditorOption[EditorOption["unfoldOnClickAfterEndOfLine"] = 34] = "unfoldOnClickAfterEndOfLine";
-    EditorOption[EditorOption["fontFamily"] = 35] = "fontFamily";
-    EditorOption[EditorOption["fontInfo"] = 36] = "fontInfo";
-    EditorOption[EditorOption["fontLigatures"] = 37] = "fontLigatures";
-    EditorOption[EditorOption["fontSize"] = 38] = "fontSize";
-    EditorOption[EditorOption["fontWeight"] = 39] = "fontWeight";
-    EditorOption[EditorOption["formatOnPaste"] = 40] = "formatOnPaste";
-    EditorOption[EditorOption["formatOnType"] = 41] = "formatOnType";
-    EditorOption[EditorOption["glyphMargin"] = 42] = "glyphMargin";
-    EditorOption[EditorOption["gotoLocation"] = 43] = "gotoLocation";
-    EditorOption[EditorOption["hideCursorInOverviewRuler"] = 44] = "hideCursorInOverviewRuler";
-    EditorOption[EditorOption["highlightActiveIndentGuide"] = 45] = "highlightActiveIndentGuide";
-    EditorOption[EditorOption["hover"] = 46] = "hover";
-    EditorOption[EditorOption["inDiffEditor"] = 47] = "inDiffEditor";
-    EditorOption[EditorOption["letterSpacing"] = 48] = "letterSpacing";
-    EditorOption[EditorOption["lightbulb"] = 49] = "lightbulb";
-    EditorOption[EditorOption["lineDecorationsWidth"] = 50] = "lineDecorationsWidth";
-    EditorOption[EditorOption["lineHeight"] = 51] = "lineHeight";
-    EditorOption[EditorOption["lineNumbers"] = 52] = "lineNumbers";
-    EditorOption[EditorOption["lineNumbersMinChars"] = 53] = "lineNumbersMinChars";
-    EditorOption[EditorOption["links"] = 54] = "links";
-    EditorOption[EditorOption["matchBrackets"] = 55] = "matchBrackets";
-    EditorOption[EditorOption["minimap"] = 56] = "minimap";
-    EditorOption[EditorOption["mouseStyle"] = 57] = "mouseStyle";
-    EditorOption[EditorOption["mouseWheelScrollSensitivity"] = 58] = "mouseWheelScrollSensitivity";
-    EditorOption[EditorOption["mouseWheelZoom"] = 59] = "mouseWheelZoom";
-    EditorOption[EditorOption["multiCursorMergeOverlapping"] = 60] = "multiCursorMergeOverlapping";
-    EditorOption[EditorOption["multiCursorModifier"] = 61] = "multiCursorModifier";
-    EditorOption[EditorOption["multiCursorPaste"] = 62] = "multiCursorPaste";
-    EditorOption[EditorOption["occurrencesHighlight"] = 63] = "occurrencesHighlight";
-    EditorOption[EditorOption["overviewRulerBorder"] = 64] = "overviewRulerBorder";
-    EditorOption[EditorOption["overviewRulerLanes"] = 65] = "overviewRulerLanes";
-    EditorOption[EditorOption["padding"] = 66] = "padding";
-    EditorOption[EditorOption["parameterHints"] = 67] = "parameterHints";
-    EditorOption[EditorOption["peekWidgetDefaultFocus"] = 68] = "peekWidgetDefaultFocus";
-    EditorOption[EditorOption["definitionLinkOpensInPeek"] = 69] = "definitionLinkOpensInPeek";
-    EditorOption[EditorOption["quickSuggestions"] = 70] = "quickSuggestions";
-    EditorOption[EditorOption["quickSuggestionsDelay"] = 71] = "quickSuggestionsDelay";
-    EditorOption[EditorOption["readOnly"] = 72] = "readOnly";
-    EditorOption[EditorOption["renameOnType"] = 73] = "renameOnType";
-    EditorOption[EditorOption["renderControlCharacters"] = 74] = "renderControlCharacters";
-    EditorOption[EditorOption["renderIndentGuides"] = 75] = "renderIndentGuides";
-    EditorOption[EditorOption["renderFinalNewline"] = 76] = "renderFinalNewline";
-    EditorOption[EditorOption["renderLineHighlight"] = 77] = "renderLineHighlight";
-    EditorOption[EditorOption["renderLineHighlightOnlyWhenFocus"] = 78] = "renderLineHighlightOnlyWhenFocus";
-    EditorOption[EditorOption["renderValidationDecorations"] = 79] = "renderValidationDecorations";
-    EditorOption[EditorOption["renderWhitespace"] = 80] = "renderWhitespace";
-    EditorOption[EditorOption["revealHorizontalRightPadding"] = 81] = "revealHorizontalRightPadding";
-    EditorOption[EditorOption["roundedSelection"] = 82] = "roundedSelection";
-    EditorOption[EditorOption["rulers"] = 83] = "rulers";
-    EditorOption[EditorOption["scrollbar"] = 84] = "scrollbar";
-    EditorOption[EditorOption["scrollBeyondLastColumn"] = 85] = "scrollBeyondLastColumn";
-    EditorOption[EditorOption["scrollBeyondLastLine"] = 86] = "scrollBeyondLastLine";
-    EditorOption[EditorOption["scrollPredominantAxis"] = 87] = "scrollPredominantAxis";
-    EditorOption[EditorOption["selectionClipboard"] = 88] = "selectionClipboard";
-    EditorOption[EditorOption["selectionHighlight"] = 89] = "selectionHighlight";
-    EditorOption[EditorOption["selectOnLineNumbers"] = 90] = "selectOnLineNumbers";
-    EditorOption[EditorOption["showFoldingControls"] = 91] = "showFoldingControls";
-    EditorOption[EditorOption["showUnused"] = 92] = "showUnused";
-    EditorOption[EditorOption["snippetSuggestions"] = 93] = "snippetSuggestions";
-    EditorOption[EditorOption["smoothScrolling"] = 94] = "smoothScrolling";
-    EditorOption[EditorOption["stopRenderingLineAfter"] = 95] = "stopRenderingLineAfter";
-    EditorOption[EditorOption["suggest"] = 96] = "suggest";
-    EditorOption[EditorOption["suggestFontSize"] = 97] = "suggestFontSize";
-    EditorOption[EditorOption["suggestLineHeight"] = 98] = "suggestLineHeight";
-    EditorOption[EditorOption["suggestOnTriggerCharacters"] = 99] = "suggestOnTriggerCharacters";
-    EditorOption[EditorOption["suggestSelection"] = 100] = "suggestSelection";
-    EditorOption[EditorOption["tabCompletion"] = 101] = "tabCompletion";
-    EditorOption[EditorOption["tabIndex"] = 102] = "tabIndex";
-    EditorOption[EditorOption["unusualLineTerminators"] = 103] = "unusualLineTerminators";
-    EditorOption[EditorOption["useTabStops"] = 104] = "useTabStops";
-    EditorOption[EditorOption["wordSeparators"] = 105] = "wordSeparators";
-    EditorOption[EditorOption["wordWrap"] = 106] = "wordWrap";
-    EditorOption[EditorOption["wordWrapBreakAfterCharacters"] = 107] = "wordWrapBreakAfterCharacters";
-    EditorOption[EditorOption["wordWrapBreakBeforeCharacters"] = 108] = "wordWrapBreakBeforeCharacters";
-    EditorOption[EditorOption["wordWrapColumn"] = 109] = "wordWrapColumn";
-    EditorOption[EditorOption["wordWrapMinified"] = 110] = "wordWrapMinified";
-    EditorOption[EditorOption["wrappingIndent"] = 111] = "wrappingIndent";
-    EditorOption[EditorOption["wrappingStrategy"] = 112] = "wrappingStrategy";
-    EditorOption[EditorOption["showDeprecated"] = 113] = "showDeprecated";
-    EditorOption[EditorOption["editorClassName"] = 114] = "editorClassName";
-    EditorOption[EditorOption["pixelRatio"] = 115] = "pixelRatio";
-    EditorOption[EditorOption["tabFocusMode"] = 116] = "tabFocusMode";
-    EditorOption[EditorOption["layoutInfo"] = 117] = "layoutInfo";
-    EditorOption[EditorOption["wrappingInfo"] = 118] = "wrappingInfo";
+    EditorOption[EditorOption["autoClosingDelete"] = 6] = "autoClosingDelete";
+    EditorOption[EditorOption["autoClosingOvertype"] = 7] = "autoClosingOvertype";
+    EditorOption[EditorOption["autoClosingQuotes"] = 8] = "autoClosingQuotes";
+    EditorOption[EditorOption["autoIndent"] = 9] = "autoIndent";
+    EditorOption[EditorOption["automaticLayout"] = 10] = "automaticLayout";
+    EditorOption[EditorOption["autoSurround"] = 11] = "autoSurround";
+    EditorOption[EditorOption["bracketPairColorization"] = 12] = "bracketPairColorization";
+    EditorOption[EditorOption["guides"] = 13] = "guides";
+    EditorOption[EditorOption["codeLens"] = 14] = "codeLens";
+    EditorOption[EditorOption["codeLensFontFamily"] = 15] = "codeLensFontFamily";
+    EditorOption[EditorOption["codeLensFontSize"] = 16] = "codeLensFontSize";
+    EditorOption[EditorOption["colorDecorators"] = 17] = "colorDecorators";
+    EditorOption[EditorOption["columnSelection"] = 18] = "columnSelection";
+    EditorOption[EditorOption["comments"] = 19] = "comments";
+    EditorOption[EditorOption["contextmenu"] = 20] = "contextmenu";
+    EditorOption[EditorOption["copyWithSyntaxHighlighting"] = 21] = "copyWithSyntaxHighlighting";
+    EditorOption[EditorOption["cursorBlinking"] = 22] = "cursorBlinking";
+    EditorOption[EditorOption["cursorSmoothCaretAnimation"] = 23] = "cursorSmoothCaretAnimation";
+    EditorOption[EditorOption["cursorStyle"] = 24] = "cursorStyle";
+    EditorOption[EditorOption["cursorSurroundingLines"] = 25] = "cursorSurroundingLines";
+    EditorOption[EditorOption["cursorSurroundingLinesStyle"] = 26] = "cursorSurroundingLinesStyle";
+    EditorOption[EditorOption["cursorWidth"] = 27] = "cursorWidth";
+    EditorOption[EditorOption["disableLayerHinting"] = 28] = "disableLayerHinting";
+    EditorOption[EditorOption["disableMonospaceOptimizations"] = 29] = "disableMonospaceOptimizations";
+    EditorOption[EditorOption["domReadOnly"] = 30] = "domReadOnly";
+    EditorOption[EditorOption["dragAndDrop"] = 31] = "dragAndDrop";
+    EditorOption[EditorOption["emptySelectionClipboard"] = 32] = "emptySelectionClipboard";
+    EditorOption[EditorOption["extraEditorClassName"] = 33] = "extraEditorClassName";
+    EditorOption[EditorOption["fastScrollSensitivity"] = 34] = "fastScrollSensitivity";
+    EditorOption[EditorOption["find"] = 35] = "find";
+    EditorOption[EditorOption["fixedOverflowWidgets"] = 36] = "fixedOverflowWidgets";
+    EditorOption[EditorOption["folding"] = 37] = "folding";
+    EditorOption[EditorOption["foldingStrategy"] = 38] = "foldingStrategy";
+    EditorOption[EditorOption["foldingHighlight"] = 39] = "foldingHighlight";
+    EditorOption[EditorOption["foldingImportsByDefault"] = 40] = "foldingImportsByDefault";
+    EditorOption[EditorOption["unfoldOnClickAfterEndOfLine"] = 41] = "unfoldOnClickAfterEndOfLine";
+    EditorOption[EditorOption["fontFamily"] = 42] = "fontFamily";
+    EditorOption[EditorOption["fontInfo"] = 43] = "fontInfo";
+    EditorOption[EditorOption["fontLigatures"] = 44] = "fontLigatures";
+    EditorOption[EditorOption["fontSize"] = 45] = "fontSize";
+    EditorOption[EditorOption["fontWeight"] = 46] = "fontWeight";
+    EditorOption[EditorOption["formatOnPaste"] = 47] = "formatOnPaste";
+    EditorOption[EditorOption["formatOnType"] = 48] = "formatOnType";
+    EditorOption[EditorOption["glyphMargin"] = 49] = "glyphMargin";
+    EditorOption[EditorOption["gotoLocation"] = 50] = "gotoLocation";
+    EditorOption[EditorOption["hideCursorInOverviewRuler"] = 51] = "hideCursorInOverviewRuler";
+    EditorOption[EditorOption["hover"] = 52] = "hover";
+    EditorOption[EditorOption["inDiffEditor"] = 53] = "inDiffEditor";
+    EditorOption[EditorOption["inlineSuggest"] = 54] = "inlineSuggest";
+    EditorOption[EditorOption["letterSpacing"] = 55] = "letterSpacing";
+    EditorOption[EditorOption["lightbulb"] = 56] = "lightbulb";
+    EditorOption[EditorOption["lineDecorationsWidth"] = 57] = "lineDecorationsWidth";
+    EditorOption[EditorOption["lineHeight"] = 58] = "lineHeight";
+    EditorOption[EditorOption["lineNumbers"] = 59] = "lineNumbers";
+    EditorOption[EditorOption["lineNumbersMinChars"] = 60] = "lineNumbersMinChars";
+    EditorOption[EditorOption["linkedEditing"] = 61] = "linkedEditing";
+    EditorOption[EditorOption["links"] = 62] = "links";
+    EditorOption[EditorOption["matchBrackets"] = 63] = "matchBrackets";
+    EditorOption[EditorOption["minimap"] = 64] = "minimap";
+    EditorOption[EditorOption["mouseStyle"] = 65] = "mouseStyle";
+    EditorOption[EditorOption["mouseWheelScrollSensitivity"] = 66] = "mouseWheelScrollSensitivity";
+    EditorOption[EditorOption["mouseWheelZoom"] = 67] = "mouseWheelZoom";
+    EditorOption[EditorOption["multiCursorMergeOverlapping"] = 68] = "multiCursorMergeOverlapping";
+    EditorOption[EditorOption["multiCursorModifier"] = 69] = "multiCursorModifier";
+    EditorOption[EditorOption["multiCursorPaste"] = 70] = "multiCursorPaste";
+    EditorOption[EditorOption["occurrencesHighlight"] = 71] = "occurrencesHighlight";
+    EditorOption[EditorOption["overviewRulerBorder"] = 72] = "overviewRulerBorder";
+    EditorOption[EditorOption["overviewRulerLanes"] = 73] = "overviewRulerLanes";
+    EditorOption[EditorOption["padding"] = 74] = "padding";
+    EditorOption[EditorOption["parameterHints"] = 75] = "parameterHints";
+    EditorOption[EditorOption["peekWidgetDefaultFocus"] = 76] = "peekWidgetDefaultFocus";
+    EditorOption[EditorOption["definitionLinkOpensInPeek"] = 77] = "definitionLinkOpensInPeek";
+    EditorOption[EditorOption["quickSuggestions"] = 78] = "quickSuggestions";
+    EditorOption[EditorOption["quickSuggestionsDelay"] = 79] = "quickSuggestionsDelay";
+    EditorOption[EditorOption["readOnly"] = 80] = "readOnly";
+    EditorOption[EditorOption["renameOnType"] = 81] = "renameOnType";
+    EditorOption[EditorOption["renderControlCharacters"] = 82] = "renderControlCharacters";
+    EditorOption[EditorOption["renderFinalNewline"] = 83] = "renderFinalNewline";
+    EditorOption[EditorOption["renderLineHighlight"] = 84] = "renderLineHighlight";
+    EditorOption[EditorOption["renderLineHighlightOnlyWhenFocus"] = 85] = "renderLineHighlightOnlyWhenFocus";
+    EditorOption[EditorOption["renderValidationDecorations"] = 86] = "renderValidationDecorations";
+    EditorOption[EditorOption["renderWhitespace"] = 87] = "renderWhitespace";
+    EditorOption[EditorOption["revealHorizontalRightPadding"] = 88] = "revealHorizontalRightPadding";
+    EditorOption[EditorOption["roundedSelection"] = 89] = "roundedSelection";
+    EditorOption[EditorOption["rulers"] = 90] = "rulers";
+    EditorOption[EditorOption["scrollbar"] = 91] = "scrollbar";
+    EditorOption[EditorOption["scrollBeyondLastColumn"] = 92] = "scrollBeyondLastColumn";
+    EditorOption[EditorOption["scrollBeyondLastLine"] = 93] = "scrollBeyondLastLine";
+    EditorOption[EditorOption["scrollPredominantAxis"] = 94] = "scrollPredominantAxis";
+    EditorOption[EditorOption["selectionClipboard"] = 95] = "selectionClipboard";
+    EditorOption[EditorOption["selectionHighlight"] = 96] = "selectionHighlight";
+    EditorOption[EditorOption["selectOnLineNumbers"] = 97] = "selectOnLineNumbers";
+    EditorOption[EditorOption["showFoldingControls"] = 98] = "showFoldingControls";
+    EditorOption[EditorOption["showUnused"] = 99] = "showUnused";
+    EditorOption[EditorOption["snippetSuggestions"] = 100] = "snippetSuggestions";
+    EditorOption[EditorOption["smartSelect"] = 101] = "smartSelect";
+    EditorOption[EditorOption["smoothScrolling"] = 102] = "smoothScrolling";
+    EditorOption[EditorOption["stickyTabStops"] = 103] = "stickyTabStops";
+    EditorOption[EditorOption["stopRenderingLineAfter"] = 104] = "stopRenderingLineAfter";
+    EditorOption[EditorOption["suggest"] = 105] = "suggest";
+    EditorOption[EditorOption["suggestFontSize"] = 106] = "suggestFontSize";
+    EditorOption[EditorOption["suggestLineHeight"] = 107] = "suggestLineHeight";
+    EditorOption[EditorOption["suggestOnTriggerCharacters"] = 108] = "suggestOnTriggerCharacters";
+    EditorOption[EditorOption["suggestSelection"] = 109] = "suggestSelection";
+    EditorOption[EditorOption["tabCompletion"] = 110] = "tabCompletion";
+    EditorOption[EditorOption["tabIndex"] = 111] = "tabIndex";
+    EditorOption[EditorOption["unicodeHighlighting"] = 112] = "unicodeHighlighting";
+    EditorOption[EditorOption["unusualLineTerminators"] = 113] = "unusualLineTerminators";
+    EditorOption[EditorOption["useShadowDOM"] = 114] = "useShadowDOM";
+    EditorOption[EditorOption["useTabStops"] = 115] = "useTabStops";
+    EditorOption[EditorOption["wordSeparators"] = 116] = "wordSeparators";
+    EditorOption[EditorOption["wordWrap"] = 117] = "wordWrap";
+    EditorOption[EditorOption["wordWrapBreakAfterCharacters"] = 118] = "wordWrapBreakAfterCharacters";
+    EditorOption[EditorOption["wordWrapBreakBeforeCharacters"] = 119] = "wordWrapBreakBeforeCharacters";
+    EditorOption[EditorOption["wordWrapColumn"] = 120] = "wordWrapColumn";
+    EditorOption[EditorOption["wordWrapOverride1"] = 121] = "wordWrapOverride1";
+    EditorOption[EditorOption["wordWrapOverride2"] = 122] = "wordWrapOverride2";
+    EditorOption[EditorOption["wrappingIndent"] = 123] = "wrappingIndent";
+    EditorOption[EditorOption["wrappingStrategy"] = 124] = "wrappingStrategy";
+    EditorOption[EditorOption["showDeprecated"] = 125] = "showDeprecated";
+    EditorOption[EditorOption["inlayHints"] = 126] = "inlayHints";
+    EditorOption[EditorOption["editorClassName"] = 127] = "editorClassName";
+    EditorOption[EditorOption["pixelRatio"] = 128] = "pixelRatio";
+    EditorOption[EditorOption["tabFocusMode"] = 129] = "tabFocusMode";
+    EditorOption[EditorOption["layoutInfo"] = 130] = "layoutInfo";
+    EditorOption[EditorOption["wrappingInfo"] = 131] = "wrappingInfo";
 })(EditorOption || (EditorOption = {}));
 /**
  * End of line character preference.
@@ -8284,6 +8836,28 @@ var IndentAction;
      */
     IndentAction[IndentAction["Outdent"] = 3] = "Outdent";
 })(IndentAction || (IndentAction = {}));
+var InlayHintKind;
+(function (InlayHintKind) {
+    InlayHintKind[InlayHintKind["Other"] = 0] = "Other";
+    InlayHintKind[InlayHintKind["Type"] = 1] = "Type";
+    InlayHintKind[InlayHintKind["Parameter"] = 2] = "Parameter";
+})(InlayHintKind || (InlayHintKind = {}));
+/**
+ * How an {@link InlineCompletionsProvider inline completion provider} was triggered.
+ */
+var InlineCompletionTriggerKind;
+(function (InlineCompletionTriggerKind) {
+    /**
+     * Completion was triggered automatically while editing.
+     * It is sufficient to return a single completion item in this case.
+     */
+    InlineCompletionTriggerKind[InlineCompletionTriggerKind["Automatic"] = 0] = "Automatic";
+    /**
+     * Completion was triggered explicitly by a user gesture.
+     * Return multiple completion items to enable cycling through them.
+     */
+    InlineCompletionTriggerKind[InlineCompletionTriggerKind["Explicit"] = 1] = "Explicit";
+})(InlineCompletionTriggerKind || (InlineCompletionTriggerKind = {}));
 /**
  * Virtual Key Codes, the value does not hold any inherent meaning.
  * Inspired somewhat from https://msdn.microsoft.com/en-us/library/windows/desktop/dd375731(v=vs.85).aspx
@@ -8291,6 +8865,7 @@ var IndentAction;
  */
 var KeyCode;
 (function (KeyCode) {
+    KeyCode[KeyCode["DependsOnKbLayout"] = -1] = "DependsOnKbLayout";
     /**
      * Placed first to cover the 0 value of the enum.
      */
@@ -8315,42 +8890,42 @@ var KeyCode;
     KeyCode[KeyCode["DownArrow"] = 18] = "DownArrow";
     KeyCode[KeyCode["Insert"] = 19] = "Insert";
     KeyCode[KeyCode["Delete"] = 20] = "Delete";
-    KeyCode[KeyCode["KEY_0"] = 21] = "KEY_0";
-    KeyCode[KeyCode["KEY_1"] = 22] = "KEY_1";
-    KeyCode[KeyCode["KEY_2"] = 23] = "KEY_2";
-    KeyCode[KeyCode["KEY_3"] = 24] = "KEY_3";
-    KeyCode[KeyCode["KEY_4"] = 25] = "KEY_4";
-    KeyCode[KeyCode["KEY_5"] = 26] = "KEY_5";
-    KeyCode[KeyCode["KEY_6"] = 27] = "KEY_6";
-    KeyCode[KeyCode["KEY_7"] = 28] = "KEY_7";
-    KeyCode[KeyCode["KEY_8"] = 29] = "KEY_8";
-    KeyCode[KeyCode["KEY_9"] = 30] = "KEY_9";
-    KeyCode[KeyCode["KEY_A"] = 31] = "KEY_A";
-    KeyCode[KeyCode["KEY_B"] = 32] = "KEY_B";
-    KeyCode[KeyCode["KEY_C"] = 33] = "KEY_C";
-    KeyCode[KeyCode["KEY_D"] = 34] = "KEY_D";
-    KeyCode[KeyCode["KEY_E"] = 35] = "KEY_E";
-    KeyCode[KeyCode["KEY_F"] = 36] = "KEY_F";
-    KeyCode[KeyCode["KEY_G"] = 37] = "KEY_G";
-    KeyCode[KeyCode["KEY_H"] = 38] = "KEY_H";
-    KeyCode[KeyCode["KEY_I"] = 39] = "KEY_I";
-    KeyCode[KeyCode["KEY_J"] = 40] = "KEY_J";
-    KeyCode[KeyCode["KEY_K"] = 41] = "KEY_K";
-    KeyCode[KeyCode["KEY_L"] = 42] = "KEY_L";
-    KeyCode[KeyCode["KEY_M"] = 43] = "KEY_M";
-    KeyCode[KeyCode["KEY_N"] = 44] = "KEY_N";
-    KeyCode[KeyCode["KEY_O"] = 45] = "KEY_O";
-    KeyCode[KeyCode["KEY_P"] = 46] = "KEY_P";
-    KeyCode[KeyCode["KEY_Q"] = 47] = "KEY_Q";
-    KeyCode[KeyCode["KEY_R"] = 48] = "KEY_R";
-    KeyCode[KeyCode["KEY_S"] = 49] = "KEY_S";
-    KeyCode[KeyCode["KEY_T"] = 50] = "KEY_T";
-    KeyCode[KeyCode["KEY_U"] = 51] = "KEY_U";
-    KeyCode[KeyCode["KEY_V"] = 52] = "KEY_V";
-    KeyCode[KeyCode["KEY_W"] = 53] = "KEY_W";
-    KeyCode[KeyCode["KEY_X"] = 54] = "KEY_X";
-    KeyCode[KeyCode["KEY_Y"] = 55] = "KEY_Y";
-    KeyCode[KeyCode["KEY_Z"] = 56] = "KEY_Z";
+    KeyCode[KeyCode["Digit0"] = 21] = "Digit0";
+    KeyCode[KeyCode["Digit1"] = 22] = "Digit1";
+    KeyCode[KeyCode["Digit2"] = 23] = "Digit2";
+    KeyCode[KeyCode["Digit3"] = 24] = "Digit3";
+    KeyCode[KeyCode["Digit4"] = 25] = "Digit4";
+    KeyCode[KeyCode["Digit5"] = 26] = "Digit5";
+    KeyCode[KeyCode["Digit6"] = 27] = "Digit6";
+    KeyCode[KeyCode["Digit7"] = 28] = "Digit7";
+    KeyCode[KeyCode["Digit8"] = 29] = "Digit8";
+    KeyCode[KeyCode["Digit9"] = 30] = "Digit9";
+    KeyCode[KeyCode["KeyA"] = 31] = "KeyA";
+    KeyCode[KeyCode["KeyB"] = 32] = "KeyB";
+    KeyCode[KeyCode["KeyC"] = 33] = "KeyC";
+    KeyCode[KeyCode["KeyD"] = 34] = "KeyD";
+    KeyCode[KeyCode["KeyE"] = 35] = "KeyE";
+    KeyCode[KeyCode["KeyF"] = 36] = "KeyF";
+    KeyCode[KeyCode["KeyG"] = 37] = "KeyG";
+    KeyCode[KeyCode["KeyH"] = 38] = "KeyH";
+    KeyCode[KeyCode["KeyI"] = 39] = "KeyI";
+    KeyCode[KeyCode["KeyJ"] = 40] = "KeyJ";
+    KeyCode[KeyCode["KeyK"] = 41] = "KeyK";
+    KeyCode[KeyCode["KeyL"] = 42] = "KeyL";
+    KeyCode[KeyCode["KeyM"] = 43] = "KeyM";
+    KeyCode[KeyCode["KeyN"] = 44] = "KeyN";
+    KeyCode[KeyCode["KeyO"] = 45] = "KeyO";
+    KeyCode[KeyCode["KeyP"] = 46] = "KeyP";
+    KeyCode[KeyCode["KeyQ"] = 47] = "KeyQ";
+    KeyCode[KeyCode["KeyR"] = 48] = "KeyR";
+    KeyCode[KeyCode["KeyS"] = 49] = "KeyS";
+    KeyCode[KeyCode["KeyT"] = 50] = "KeyT";
+    KeyCode[KeyCode["KeyU"] = 51] = "KeyU";
+    KeyCode[KeyCode["KeyV"] = 52] = "KeyV";
+    KeyCode[KeyCode["KeyW"] = 53] = "KeyW";
+    KeyCode[KeyCode["KeyX"] = 54] = "KeyX";
+    KeyCode[KeyCode["KeyY"] = 55] = "KeyY";
+    KeyCode[KeyCode["KeyZ"] = 56] = "KeyZ";
     KeyCode[KeyCode["Meta"] = 57] = "Meta";
     KeyCode[KeyCode["ContextMenu"] = 58] = "ContextMenu";
     KeyCode[KeyCode["F1"] = 59] = "F1";
@@ -8378,57 +8953,57 @@ var KeyCode;
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the ';:' key
      */
-    KeyCode[KeyCode["US_SEMICOLON"] = 80] = "US_SEMICOLON";
+    KeyCode[KeyCode["Semicolon"] = 80] = "Semicolon";
     /**
      * For any country/region, the '+' key
      * For the US standard keyboard, the '=+' key
      */
-    KeyCode[KeyCode["US_EQUAL"] = 81] = "US_EQUAL";
+    KeyCode[KeyCode["Equal"] = 81] = "Equal";
     /**
      * For any country/region, the ',' key
      * For the US standard keyboard, the ',<' key
      */
-    KeyCode[KeyCode["US_COMMA"] = 82] = "US_COMMA";
+    KeyCode[KeyCode["Comma"] = 82] = "Comma";
     /**
      * For any country/region, the '-' key
      * For the US standard keyboard, the '-_' key
      */
-    KeyCode[KeyCode["US_MINUS"] = 83] = "US_MINUS";
+    KeyCode[KeyCode["Minus"] = 83] = "Minus";
     /**
      * For any country/region, the '.' key
      * For the US standard keyboard, the '.>' key
      */
-    KeyCode[KeyCode["US_DOT"] = 84] = "US_DOT";
+    KeyCode[KeyCode["Period"] = 84] = "Period";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the '/?' key
      */
-    KeyCode[KeyCode["US_SLASH"] = 85] = "US_SLASH";
+    KeyCode[KeyCode["Slash"] = 85] = "Slash";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the '`~' key
      */
-    KeyCode[KeyCode["US_BACKTICK"] = 86] = "US_BACKTICK";
+    KeyCode[KeyCode["Backquote"] = 86] = "Backquote";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the '[{' key
      */
-    KeyCode[KeyCode["US_OPEN_SQUARE_BRACKET"] = 87] = "US_OPEN_SQUARE_BRACKET";
+    KeyCode[KeyCode["BracketLeft"] = 87] = "BracketLeft";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the '\|' key
      */
-    KeyCode[KeyCode["US_BACKSLASH"] = 88] = "US_BACKSLASH";
+    KeyCode[KeyCode["Backslash"] = 88] = "Backslash";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the ']}' key
      */
-    KeyCode[KeyCode["US_CLOSE_SQUARE_BRACKET"] = 89] = "US_CLOSE_SQUARE_BRACKET";
+    KeyCode[KeyCode["BracketRight"] = 89] = "BracketRight";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      * For the US standard keyboard, the ''"' key
      */
-    KeyCode[KeyCode["US_QUOTE"] = 90] = "US_QUOTE";
+    KeyCode[KeyCode["Quote"] = 90] = "Quote";
     /**
      * Used for miscellaneous characters; it can vary by keyboard.
      */
@@ -8436,34 +9011,48 @@ var KeyCode;
     /**
      * Either the angle bracket key or the backslash key on the RT 102-key keyboard.
      */
-    KeyCode[KeyCode["OEM_102"] = 92] = "OEM_102";
-    KeyCode[KeyCode["NUMPAD_0"] = 93] = "NUMPAD_0";
-    KeyCode[KeyCode["NUMPAD_1"] = 94] = "NUMPAD_1";
-    KeyCode[KeyCode["NUMPAD_2"] = 95] = "NUMPAD_2";
-    KeyCode[KeyCode["NUMPAD_3"] = 96] = "NUMPAD_3";
-    KeyCode[KeyCode["NUMPAD_4"] = 97] = "NUMPAD_4";
-    KeyCode[KeyCode["NUMPAD_5"] = 98] = "NUMPAD_5";
-    KeyCode[KeyCode["NUMPAD_6"] = 99] = "NUMPAD_6";
-    KeyCode[KeyCode["NUMPAD_7"] = 100] = "NUMPAD_7";
-    KeyCode[KeyCode["NUMPAD_8"] = 101] = "NUMPAD_8";
-    KeyCode[KeyCode["NUMPAD_9"] = 102] = "NUMPAD_9";
-    KeyCode[KeyCode["NUMPAD_MULTIPLY"] = 103] = "NUMPAD_MULTIPLY";
-    KeyCode[KeyCode["NUMPAD_ADD"] = 104] = "NUMPAD_ADD";
+    KeyCode[KeyCode["IntlBackslash"] = 92] = "IntlBackslash";
+    KeyCode[KeyCode["Numpad0"] = 93] = "Numpad0";
+    KeyCode[KeyCode["Numpad1"] = 94] = "Numpad1";
+    KeyCode[KeyCode["Numpad2"] = 95] = "Numpad2";
+    KeyCode[KeyCode["Numpad3"] = 96] = "Numpad3";
+    KeyCode[KeyCode["Numpad4"] = 97] = "Numpad4";
+    KeyCode[KeyCode["Numpad5"] = 98] = "Numpad5";
+    KeyCode[KeyCode["Numpad6"] = 99] = "Numpad6";
+    KeyCode[KeyCode["Numpad7"] = 100] = "Numpad7";
+    KeyCode[KeyCode["Numpad8"] = 101] = "Numpad8";
+    KeyCode[KeyCode["Numpad9"] = 102] = "Numpad9";
+    KeyCode[KeyCode["NumpadMultiply"] = 103] = "NumpadMultiply";
+    KeyCode[KeyCode["NumpadAdd"] = 104] = "NumpadAdd";
     KeyCode[KeyCode["NUMPAD_SEPARATOR"] = 105] = "NUMPAD_SEPARATOR";
-    KeyCode[KeyCode["NUMPAD_SUBTRACT"] = 106] = "NUMPAD_SUBTRACT";
-    KeyCode[KeyCode["NUMPAD_DECIMAL"] = 107] = "NUMPAD_DECIMAL";
-    KeyCode[KeyCode["NUMPAD_DIVIDE"] = 108] = "NUMPAD_DIVIDE";
+    KeyCode[KeyCode["NumpadSubtract"] = 106] = "NumpadSubtract";
+    KeyCode[KeyCode["NumpadDecimal"] = 107] = "NumpadDecimal";
+    KeyCode[KeyCode["NumpadDivide"] = 108] = "NumpadDivide";
     /**
      * Cover all key codes when IME is processing input.
      */
     KeyCode[KeyCode["KEY_IN_COMPOSITION"] = 109] = "KEY_IN_COMPOSITION";
     KeyCode[KeyCode["ABNT_C1"] = 110] = "ABNT_C1";
     KeyCode[KeyCode["ABNT_C2"] = 111] = "ABNT_C2";
+    KeyCode[KeyCode["AudioVolumeMute"] = 112] = "AudioVolumeMute";
+    KeyCode[KeyCode["AudioVolumeUp"] = 113] = "AudioVolumeUp";
+    KeyCode[KeyCode["AudioVolumeDown"] = 114] = "AudioVolumeDown";
+    KeyCode[KeyCode["BrowserSearch"] = 115] = "BrowserSearch";
+    KeyCode[KeyCode["BrowserHome"] = 116] = "BrowserHome";
+    KeyCode[KeyCode["BrowserBack"] = 117] = "BrowserBack";
+    KeyCode[KeyCode["BrowserForward"] = 118] = "BrowserForward";
+    KeyCode[KeyCode["MediaTrackNext"] = 119] = "MediaTrackNext";
+    KeyCode[KeyCode["MediaTrackPrevious"] = 120] = "MediaTrackPrevious";
+    KeyCode[KeyCode["MediaStop"] = 121] = "MediaStop";
+    KeyCode[KeyCode["MediaPlayPause"] = 122] = "MediaPlayPause";
+    KeyCode[KeyCode["LaunchMediaPlayer"] = 123] = "LaunchMediaPlayer";
+    KeyCode[KeyCode["LaunchMail"] = 124] = "LaunchMail";
+    KeyCode[KeyCode["LaunchApp2"] = 125] = "LaunchApp2";
     /**
      * Placed last to cover the length of the enum.
      * Please do not depend on this value!
      */
-    KeyCode[KeyCode["MAX_VALUE"] = 112] = "MAX_VALUE";
+    KeyCode[KeyCode["MAX_VALUE"] = 126] = "MAX_VALUE";
 })(KeyCode || (KeyCode = {}));
 var MarkerSeverity;
 (function (MarkerSeverity) {
@@ -8781,8 +9370,8 @@ function createMonacoBaseAPI() {
         Emitter: Emitter,
         KeyCode: KeyCode,
         KeyMod: KeyMod,
-        Position: Position,
-        Range: Range,
+        Position: position_Position,
+        Range: range_Range,
         Selection: Selection,
         SelectionDirection: SelectionDirection,
         MarkerSeverity: MarkerSeverity,
@@ -8790,6 +9379,929 @@ function createMonacoBaseAPI() {
         Uri: URI,
         Token: Token
     };
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/common/controller/wordCharacterClassifier.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+class WordCharacterClassifier extends CharacterClassifier {
+    constructor(wordSeparators) {
+        super(0 /* Regular */);
+        for (let i = 0, len = wordSeparators.length; i < len; i++) {
+            this.set(wordSeparators.charCodeAt(i), 2 /* WordSeparator */);
+        }
+        this.set(32 /* Space */, 1 /* Whitespace */);
+        this.set(9 /* Tab */, 1 /* Whitespace */);
+    }
+}
+function wordCharacterClassifier_once(computeFn) {
+    let cache = {}; // TODO@Alex unbounded cache
+    return (input) => {
+        if (!cache.hasOwnProperty(input)) {
+            cache[input] = computeFn(input);
+        }
+        return cache[input];
+    };
+}
+const wordCharacterClassifier_getMapForWordSeparators = wordCharacterClassifier_once((input) => new WordCharacterClassifier(input));
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/base/common/objects.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+function deepClone(obj) {
+    if (!obj || typeof obj !== 'object') {
+        return obj;
+    }
+    if (obj instanceof RegExp) {
+        // See https://github.com/microsoft/TypeScript/issues/10990
+        return obj;
+    }
+    const result = Array.isArray(obj) ? [] : {};
+    Object.keys(obj).forEach((key) => {
+        if (obj[key] && typeof obj[key] === 'object') {
+            result[key] = deepClone(obj[key]);
+        }
+        else {
+            result[key] = obj[key];
+        }
+    });
+    return result;
+}
+function deepFreeze(obj) {
+    if (!obj || typeof obj !== 'object') {
+        return obj;
+    }
+    const stack = [obj];
+    while (stack.length > 0) {
+        const obj = stack.shift();
+        Object.freeze(obj);
+        for (const key in obj) {
+            if (_hasOwnProperty.call(obj, key)) {
+                const prop = obj[key];
+                if (typeof prop === 'object' && !Object.isFrozen(prop)) {
+                    stack.push(prop);
+                }
+            }
+        }
+    }
+    return obj;
+}
+const _hasOwnProperty = Object.prototype.hasOwnProperty;
+function cloneAndChange(obj, changer) {
+    return _cloneAndChange(obj, changer, new Set());
+}
+function _cloneAndChange(obj, changer, seen) {
+    if (isUndefinedOrNull(obj)) {
+        return obj;
+    }
+    const changed = changer(obj);
+    if (typeof changed !== 'undefined') {
+        return changed;
+    }
+    if (isArray(obj)) {
+        const r1 = [];
+        for (const e of obj) {
+            r1.push(_cloneAndChange(e, changer, seen));
+        }
+        return r1;
+    }
+    if (isObject(obj)) {
+        if (seen.has(obj)) {
+            throw new Error('Cannot clone recursive data-structure');
+        }
+        seen.add(obj);
+        const r2 = {};
+        for (let i2 in obj) {
+            if (_hasOwnProperty.call(obj, i2)) {
+                r2[i2] = _cloneAndChange(obj[i2], changer, seen);
+            }
+        }
+        seen.delete(obj);
+        return r2;
+    }
+    return obj;
+}
+/**
+ * Copies all properties of source into destination. The optional parameter "overwrite" allows to control
+ * if existing properties on the destination should be overwritten or not. Defaults to true (overwrite).
+ */
+function mixin(destination, source, overwrite = true) {
+    if (!isObject(destination)) {
+        return source;
+    }
+    if (isObject(source)) {
+        Object.keys(source).forEach(key => {
+            if (key in destination) {
+                if (overwrite) {
+                    if (isObject(destination[key]) && isObject(source[key])) {
+                        mixin(destination[key], source[key], overwrite);
+                    }
+                    else {
+                        destination[key] = source[key];
+                    }
+                }
+            }
+            else {
+                destination[key] = source[key];
+            }
+        });
+    }
+    return destination;
+}
+function objects_equals(one, other) {
+    if (one === other) {
+        return true;
+    }
+    if (one === null || one === undefined || other === null || other === undefined) {
+        return false;
+    }
+    if (typeof one !== typeof other) {
+        return false;
+    }
+    if (typeof one !== 'object') {
+        return false;
+    }
+    if ((Array.isArray(one)) !== (Array.isArray(other))) {
+        return false;
+    }
+    let i;
+    let key;
+    if (Array.isArray(one)) {
+        if (one.length !== other.length) {
+            return false;
+        }
+        for (i = 0; i < one.length; i++) {
+            if (!objects_equals(one[i], other[i])) {
+                return false;
+            }
+        }
+    }
+    else {
+        const oneKeys = [];
+        for (key in one) {
+            oneKeys.push(key);
+        }
+        oneKeys.sort();
+        const otherKeys = [];
+        for (key in other) {
+            otherKeys.push(key);
+        }
+        otherKeys.sort();
+        if (!objects_equals(oneKeys, otherKeys)) {
+            return false;
+        }
+        for (i = 0; i < oneKeys.length; i++) {
+            if (!objects_equals(one[oneKeys[i]], other[oneKeys[i]])) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+function getOrDefault(obj, fn, defaultValue) {
+    const result = fn(obj);
+    return typeof result === 'undefined' ? defaultValue : result;
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/common/model.js
+
+/**
+ * Vertical Lane in the overview ruler of the editor.
+ */
+var model_OverviewRulerLane;
+(function (OverviewRulerLane) {
+    OverviewRulerLane[OverviewRulerLane["Left"] = 1] = "Left";
+    OverviewRulerLane[OverviewRulerLane["Center"] = 2] = "Center";
+    OverviewRulerLane[OverviewRulerLane["Right"] = 4] = "Right";
+    OverviewRulerLane[OverviewRulerLane["Full"] = 7] = "Full";
+})(model_OverviewRulerLane || (model_OverviewRulerLane = {}));
+/**
+ * Position in the minimap to render the decoration.
+ */
+var model_MinimapPosition;
+(function (MinimapPosition) {
+    MinimapPosition[MinimapPosition["Inline"] = 1] = "Inline";
+    MinimapPosition[MinimapPosition["Gutter"] = 2] = "Gutter";
+})(model_MinimapPosition || (model_MinimapPosition = {}));
+class TextModelResolvedOptions {
+    /**
+     * @internal
+     */
+    constructor(src) {
+        this._textModelResolvedOptionsBrand = undefined;
+        this.tabSize = Math.max(1, src.tabSize | 0);
+        this.indentSize = src.tabSize | 0;
+        this.insertSpaces = Boolean(src.insertSpaces);
+        this.defaultEOL = src.defaultEOL | 0;
+        this.trimAutoWhitespace = Boolean(src.trimAutoWhitespace);
+        this.bracketPairColorizationOptions = src.bracketPairColorizationOptions;
+    }
+    /**
+     * @internal
+     */
+    equals(other) {
+        return (this.tabSize === other.tabSize
+            && this.indentSize === other.indentSize
+            && this.insertSpaces === other.insertSpaces
+            && this.defaultEOL === other.defaultEOL
+            && this.trimAutoWhitespace === other.trimAutoWhitespace
+            && equals(this.bracketPairColorizationOptions, other.bracketPairColorizationOptions));
+    }
+    /**
+     * @internal
+     */
+    createChangeEvent(newOpts) {
+        return {
+            tabSize: this.tabSize !== newOpts.tabSize,
+            indentSize: this.indentSize !== newOpts.indentSize,
+            insertSpaces: this.insertSpaces !== newOpts.insertSpaces,
+            trimAutoWhitespace: this.trimAutoWhitespace !== newOpts.trimAutoWhitespace,
+        };
+    }
+}
+class model_FindMatch {
+    /**
+     * @internal
+     */
+    constructor(range, matches) {
+        this._findMatchBrand = undefined;
+        this.range = range;
+        this.matches = matches;
+    }
+}
+/**
+ * @internal
+ */
+var HorizontalGuidesState;
+(function (HorizontalGuidesState) {
+    HorizontalGuidesState[HorizontalGuidesState["Disabled"] = 0] = "Disabled";
+    HorizontalGuidesState[HorizontalGuidesState["EnabledForActive"] = 1] = "EnabledForActive";
+    HorizontalGuidesState[HorizontalGuidesState["Enabled"] = 2] = "Enabled";
+})(HorizontalGuidesState || (HorizontalGuidesState = {}));
+/**
+ * @internal
+ */
+class IndentGuide {
+    constructor(visibleColumn, className, 
+    /**
+     * If set, this indent guide is a horizontal guide (no vertical part).
+     * It starts at visibleColumn and continues until endColumn.
+    */
+    horizontalLine) {
+        this.visibleColumn = visibleColumn;
+        this.className = className;
+        this.horizontalLine = horizontalLine;
+    }
+}
+/**
+ * @internal
+ */
+class IndentGuideHorizontalLine {
+    constructor(top, endColumn) {
+        this.top = top;
+        this.endColumn = endColumn;
+    }
+}
+/**
+ * @internal
+ */
+class ValidAnnotatedEditOperation {
+    constructor(identifier, range, text, forceMoveMarkers, isAutoWhitespaceEdit, _isTracked) {
+        this.identifier = identifier;
+        this.range = range;
+        this.text = text;
+        this.forceMoveMarkers = forceMoveMarkers;
+        this.isAutoWhitespaceEdit = isAutoWhitespaceEdit;
+        this._isTracked = _isTracked;
+    }
+}
+/**
+ * @internal
+ */
+class ApplyEditsResult {
+    constructor(reverseEdits, changes, trimAutoWhitespaceLineNumbers) {
+        this.reverseEdits = reverseEdits;
+        this.changes = changes;
+        this.trimAutoWhitespaceLineNumbers = trimAutoWhitespaceLineNumbers;
+    }
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/common/model/textModelSearch.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+
+
+
+
+const LIMIT_FIND_COUNT = 999;
+class SearchParams {
+    constructor(searchString, isRegex, matchCase, wordSeparators) {
+        this.searchString = searchString;
+        this.isRegex = isRegex;
+        this.matchCase = matchCase;
+        this.wordSeparators = wordSeparators;
+    }
+    parseSearchRequest() {
+        if (this.searchString === '') {
+            return null;
+        }
+        // Try to create a RegExp out of the params
+        let multiline;
+        if (this.isRegex) {
+            multiline = isMultilineRegexSource(this.searchString);
+        }
+        else {
+            multiline = (this.searchString.indexOf('\n') >= 0);
+        }
+        let regex = null;
+        try {
+            regex = strings.createRegExp(this.searchString, this.isRegex, {
+                matchCase: this.matchCase,
+                wholeWord: false,
+                multiline: multiline,
+                global: true,
+                unicode: true
+            });
+        }
+        catch (err) {
+            return null;
+        }
+        if (!regex) {
+            return null;
+        }
+        let canUseSimpleSearch = (!this.isRegex && !multiline);
+        if (canUseSimpleSearch && this.searchString.toLowerCase() !== this.searchString.toUpperCase()) {
+            // casing might make a difference
+            canUseSimpleSearch = this.matchCase;
+        }
+        return new SearchData(regex, this.wordSeparators ? getMapForWordSeparators(this.wordSeparators) : null, canUseSimpleSearch ? this.searchString : null);
+    }
+}
+function isMultilineRegexSource(searchString) {
+    if (!searchString || searchString.length === 0) {
+        return false;
+    }
+    for (let i = 0, len = searchString.length; i < len; i++) {
+        const chCode = searchString.charCodeAt(i);
+        if (chCode === 92 /* Backslash */) {
+            // move to next char
+            i++;
+            if (i >= len) {
+                // string ends with a \
+                break;
+            }
+            const nextChCode = searchString.charCodeAt(i);
+            if (nextChCode === 110 /* n */ || nextChCode === 114 /* r */ || nextChCode === 87 /* W */) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+class SearchData {
+    constructor(regex, wordSeparators, simpleSearch) {
+        this.regex = regex;
+        this.wordSeparators = wordSeparators;
+        this.simpleSearch = simpleSearch;
+    }
+}
+function createFindMatch(range, rawMatches, captureMatches) {
+    if (!captureMatches) {
+        return new FindMatch(range, null);
+    }
+    let matches = [];
+    for (let i = 0, len = rawMatches.length; i < len; i++) {
+        matches[i] = rawMatches[i];
+    }
+    return new FindMatch(range, matches);
+}
+class LineFeedCounter {
+    constructor(text) {
+        let lineFeedsOffsets = [];
+        let lineFeedsOffsetsLen = 0;
+        for (let i = 0, textLen = text.length; i < textLen; i++) {
+            if (text.charCodeAt(i) === 10 /* LineFeed */) {
+                lineFeedsOffsets[lineFeedsOffsetsLen++] = i;
+            }
+        }
+        this._lineFeedsOffsets = lineFeedsOffsets;
+    }
+    findLineFeedCountBeforeOffset(offset) {
+        const lineFeedsOffsets = this._lineFeedsOffsets;
+        let min = 0;
+        let max = lineFeedsOffsets.length - 1;
+        if (max === -1) {
+            // no line feeds
+            return 0;
+        }
+        if (offset <= lineFeedsOffsets[0]) {
+            // before first line feed
+            return 0;
+        }
+        while (min < max) {
+            const mid = min + ((max - min) / 2 >> 0);
+            if (lineFeedsOffsets[mid] >= offset) {
+                max = mid - 1;
+            }
+            else {
+                if (lineFeedsOffsets[mid + 1] >= offset) {
+                    // bingo!
+                    min = mid;
+                    max = mid;
+                }
+                else {
+                    min = mid + 1;
+                }
+            }
+        }
+        return min + 1;
+    }
+}
+class TextModelSearch {
+    static findMatches(model, searchParams, searchRange, captureMatches, limitResultCount) {
+        const searchData = searchParams.parseSearchRequest();
+        if (!searchData) {
+            return [];
+        }
+        if (searchData.regex.multiline) {
+            return this._doFindMatchesMultiline(model, searchRange, new Searcher(searchData.wordSeparators, searchData.regex), captureMatches, limitResultCount);
+        }
+        return this._doFindMatchesLineByLine(model, searchRange, searchData, captureMatches, limitResultCount);
+    }
+    /**
+     * Multiline search always executes on the lines concatenated with \n.
+     * We must therefore compensate for the count of \n in case the model is CRLF
+     */
+    static _getMultilineMatchRange(model, deltaOffset, text, lfCounter, matchIndex, match0) {
+        let startOffset;
+        let lineFeedCountBeforeMatch = 0;
+        if (lfCounter) {
+            lineFeedCountBeforeMatch = lfCounter.findLineFeedCountBeforeOffset(matchIndex);
+            startOffset = deltaOffset + matchIndex + lineFeedCountBeforeMatch /* add as many \r as there were \n */;
+        }
+        else {
+            startOffset = deltaOffset + matchIndex;
+        }
+        let endOffset;
+        if (lfCounter) {
+            let lineFeedCountBeforeEndOfMatch = lfCounter.findLineFeedCountBeforeOffset(matchIndex + match0.length);
+            let lineFeedCountInMatch = lineFeedCountBeforeEndOfMatch - lineFeedCountBeforeMatch;
+            endOffset = startOffset + match0.length + lineFeedCountInMatch /* add as many \r as there were \n */;
+        }
+        else {
+            endOffset = startOffset + match0.length;
+        }
+        const startPosition = model.getPositionAt(startOffset);
+        const endPosition = model.getPositionAt(endOffset);
+        return new Range(startPosition.lineNumber, startPosition.column, endPosition.lineNumber, endPosition.column);
+    }
+    static _doFindMatchesMultiline(model, searchRange, searcher, captureMatches, limitResultCount) {
+        const deltaOffset = model.getOffsetAt(searchRange.getStartPosition());
+        // We always execute multiline search over the lines joined with \n
+        // This makes it that \n will match the EOL for both CRLF and LF models
+        // We compensate for offset errors in `_getMultilineMatchRange`
+        const text = model.getValueInRange(searchRange, 1 /* LF */);
+        const lfCounter = (model.getEOL() === '\r\n' ? new LineFeedCounter(text) : null);
+        const result = [];
+        let counter = 0;
+        let m;
+        searcher.reset(0);
+        while ((m = searcher.next(text))) {
+            result[counter++] = createFindMatch(this._getMultilineMatchRange(model, deltaOffset, text, lfCounter, m.index, m[0]), m, captureMatches);
+            if (counter >= limitResultCount) {
+                return result;
+            }
+        }
+        return result;
+    }
+    static _doFindMatchesLineByLine(model, searchRange, searchData, captureMatches, limitResultCount) {
+        const result = [];
+        let resultLen = 0;
+        // Early case for a search range that starts & stops on the same line number
+        if (searchRange.startLineNumber === searchRange.endLineNumber) {
+            const text = model.getLineContent(searchRange.startLineNumber).substring(searchRange.startColumn - 1, searchRange.endColumn - 1);
+            resultLen = this._findMatchesInLine(searchData, text, searchRange.startLineNumber, searchRange.startColumn - 1, resultLen, result, captureMatches, limitResultCount);
+            return result;
+        }
+        // Collect results from first line
+        const text = model.getLineContent(searchRange.startLineNumber).substring(searchRange.startColumn - 1);
+        resultLen = this._findMatchesInLine(searchData, text, searchRange.startLineNumber, searchRange.startColumn - 1, resultLen, result, captureMatches, limitResultCount);
+        // Collect results from middle lines
+        for (let lineNumber = searchRange.startLineNumber + 1; lineNumber < searchRange.endLineNumber && resultLen < limitResultCount; lineNumber++) {
+            resultLen = this._findMatchesInLine(searchData, model.getLineContent(lineNumber), lineNumber, 0, resultLen, result, captureMatches, limitResultCount);
+        }
+        // Collect results from last line
+        if (resultLen < limitResultCount) {
+            const text = model.getLineContent(searchRange.endLineNumber).substring(0, searchRange.endColumn - 1);
+            resultLen = this._findMatchesInLine(searchData, text, searchRange.endLineNumber, 0, resultLen, result, captureMatches, limitResultCount);
+        }
+        return result;
+    }
+    static _findMatchesInLine(searchData, text, lineNumber, deltaOffset, resultLen, result, captureMatches, limitResultCount) {
+        const wordSeparators = searchData.wordSeparators;
+        if (!captureMatches && searchData.simpleSearch) {
+            const searchString = searchData.simpleSearch;
+            const searchStringLen = searchString.length;
+            const textLength = text.length;
+            let lastMatchIndex = -searchStringLen;
+            while ((lastMatchIndex = text.indexOf(searchString, lastMatchIndex + searchStringLen)) !== -1) {
+                if (!wordSeparators || isValidMatch(wordSeparators, text, textLength, lastMatchIndex, searchStringLen)) {
+                    result[resultLen++] = new FindMatch(new Range(lineNumber, lastMatchIndex + 1 + deltaOffset, lineNumber, lastMatchIndex + 1 + searchStringLen + deltaOffset), null);
+                    if (resultLen >= limitResultCount) {
+                        return resultLen;
+                    }
+                }
+            }
+            return resultLen;
+        }
+        const searcher = new Searcher(searchData.wordSeparators, searchData.regex);
+        let m;
+        // Reset regex to search from the beginning
+        searcher.reset(0);
+        do {
+            m = searcher.next(text);
+            if (m) {
+                result[resultLen++] = createFindMatch(new Range(lineNumber, m.index + 1 + deltaOffset, lineNumber, m.index + 1 + m[0].length + deltaOffset), m, captureMatches);
+                if (resultLen >= limitResultCount) {
+                    return resultLen;
+                }
+            }
+        } while (m);
+        return resultLen;
+    }
+    static findNextMatch(model, searchParams, searchStart, captureMatches) {
+        const searchData = searchParams.parseSearchRequest();
+        if (!searchData) {
+            return null;
+        }
+        const searcher = new Searcher(searchData.wordSeparators, searchData.regex);
+        if (searchData.regex.multiline) {
+            return this._doFindNextMatchMultiline(model, searchStart, searcher, captureMatches);
+        }
+        return this._doFindNextMatchLineByLine(model, searchStart, searcher, captureMatches);
+    }
+    static _doFindNextMatchMultiline(model, searchStart, searcher, captureMatches) {
+        const searchTextStart = new Position(searchStart.lineNumber, 1);
+        const deltaOffset = model.getOffsetAt(searchTextStart);
+        const lineCount = model.getLineCount();
+        // We always execute multiline search over the lines joined with \n
+        // This makes it that \n will match the EOL for both CRLF and LF models
+        // We compensate for offset errors in `_getMultilineMatchRange`
+        const text = model.getValueInRange(new Range(searchTextStart.lineNumber, searchTextStart.column, lineCount, model.getLineMaxColumn(lineCount)), 1 /* LF */);
+        const lfCounter = (model.getEOL() === '\r\n' ? new LineFeedCounter(text) : null);
+        searcher.reset(searchStart.column - 1);
+        let m = searcher.next(text);
+        if (m) {
+            return createFindMatch(this._getMultilineMatchRange(model, deltaOffset, text, lfCounter, m.index, m[0]), m, captureMatches);
+        }
+        if (searchStart.lineNumber !== 1 || searchStart.column !== 1) {
+            // Try again from the top
+            return this._doFindNextMatchMultiline(model, new Position(1, 1), searcher, captureMatches);
+        }
+        return null;
+    }
+    static _doFindNextMatchLineByLine(model, searchStart, searcher, captureMatches) {
+        const lineCount = model.getLineCount();
+        const startLineNumber = searchStart.lineNumber;
+        // Look in first line
+        const text = model.getLineContent(startLineNumber);
+        const r = this._findFirstMatchInLine(searcher, text, startLineNumber, searchStart.column, captureMatches);
+        if (r) {
+            return r;
+        }
+        for (let i = 1; i <= lineCount; i++) {
+            const lineIndex = (startLineNumber + i - 1) % lineCount;
+            const text = model.getLineContent(lineIndex + 1);
+            const r = this._findFirstMatchInLine(searcher, text, lineIndex + 1, 1, captureMatches);
+            if (r) {
+                return r;
+            }
+        }
+        return null;
+    }
+    static _findFirstMatchInLine(searcher, text, lineNumber, fromColumn, captureMatches) {
+        // Set regex to search from column
+        searcher.reset(fromColumn - 1);
+        const m = searcher.next(text);
+        if (m) {
+            return createFindMatch(new Range(lineNumber, m.index + 1, lineNumber, m.index + 1 + m[0].length), m, captureMatches);
+        }
+        return null;
+    }
+    static findPreviousMatch(model, searchParams, searchStart, captureMatches) {
+        const searchData = searchParams.parseSearchRequest();
+        if (!searchData) {
+            return null;
+        }
+        const searcher = new Searcher(searchData.wordSeparators, searchData.regex);
+        if (searchData.regex.multiline) {
+            return this._doFindPreviousMatchMultiline(model, searchStart, searcher, captureMatches);
+        }
+        return this._doFindPreviousMatchLineByLine(model, searchStart, searcher, captureMatches);
+    }
+    static _doFindPreviousMatchMultiline(model, searchStart, searcher, captureMatches) {
+        const matches = this._doFindMatchesMultiline(model, new Range(1, 1, searchStart.lineNumber, searchStart.column), searcher, captureMatches, 10 * LIMIT_FIND_COUNT);
+        if (matches.length > 0) {
+            return matches[matches.length - 1];
+        }
+        const lineCount = model.getLineCount();
+        if (searchStart.lineNumber !== lineCount || searchStart.column !== model.getLineMaxColumn(lineCount)) {
+            // Try again with all content
+            return this._doFindPreviousMatchMultiline(model, new Position(lineCount, model.getLineMaxColumn(lineCount)), searcher, captureMatches);
+        }
+        return null;
+    }
+    static _doFindPreviousMatchLineByLine(model, searchStart, searcher, captureMatches) {
+        const lineCount = model.getLineCount();
+        const startLineNumber = searchStart.lineNumber;
+        // Look in first line
+        const text = model.getLineContent(startLineNumber).substring(0, searchStart.column - 1);
+        const r = this._findLastMatchInLine(searcher, text, startLineNumber, captureMatches);
+        if (r) {
+            return r;
+        }
+        for (let i = 1; i <= lineCount; i++) {
+            const lineIndex = (lineCount + startLineNumber - i - 1) % lineCount;
+            const text = model.getLineContent(lineIndex + 1);
+            const r = this._findLastMatchInLine(searcher, text, lineIndex + 1, captureMatches);
+            if (r) {
+                return r;
+            }
+        }
+        return null;
+    }
+    static _findLastMatchInLine(searcher, text, lineNumber, captureMatches) {
+        let bestResult = null;
+        let m;
+        searcher.reset(0);
+        while ((m = searcher.next(text))) {
+            bestResult = createFindMatch(new Range(lineNumber, m.index + 1, lineNumber, m.index + 1 + m[0].length), m, captureMatches);
+        }
+        return bestResult;
+    }
+}
+function leftIsWordBounday(wordSeparators, text, textLength, matchStartIndex, matchLength) {
+    if (matchStartIndex === 0) {
+        // Match starts at start of string
+        return true;
+    }
+    const charBefore = text.charCodeAt(matchStartIndex - 1);
+    if (wordSeparators.get(charBefore) !== 0 /* Regular */) {
+        // The character before the match is a word separator
+        return true;
+    }
+    if (charBefore === 13 /* CarriageReturn */ || charBefore === 10 /* LineFeed */) {
+        // The character before the match is line break or carriage return.
+        return true;
+    }
+    if (matchLength > 0) {
+        const firstCharInMatch = text.charCodeAt(matchStartIndex);
+        if (wordSeparators.get(firstCharInMatch) !== 0 /* Regular */) {
+            // The first character inside the match is a word separator
+            return true;
+        }
+    }
+    return false;
+}
+function rightIsWordBounday(wordSeparators, text, textLength, matchStartIndex, matchLength) {
+    if (matchStartIndex + matchLength === textLength) {
+        // Match ends at end of string
+        return true;
+    }
+    const charAfter = text.charCodeAt(matchStartIndex + matchLength);
+    if (wordSeparators.get(charAfter) !== 0 /* Regular */) {
+        // The character after the match is a word separator
+        return true;
+    }
+    if (charAfter === 13 /* CarriageReturn */ || charAfter === 10 /* LineFeed */) {
+        // The character after the match is line break or carriage return.
+        return true;
+    }
+    if (matchLength > 0) {
+        const lastCharInMatch = text.charCodeAt(matchStartIndex + matchLength - 1);
+        if (wordSeparators.get(lastCharInMatch) !== 0 /* Regular */) {
+            // The last character in the match is a word separator
+            return true;
+        }
+    }
+    return false;
+}
+function isValidMatch(wordSeparators, text, textLength, matchStartIndex, matchLength) {
+    return (leftIsWordBounday(wordSeparators, text, textLength, matchStartIndex, matchLength)
+        && rightIsWordBounday(wordSeparators, text, textLength, matchStartIndex, matchLength));
+}
+class Searcher {
+    constructor(wordSeparators, searchRegex) {
+        this._wordSeparators = wordSeparators;
+        this._searchRegex = searchRegex;
+        this._prevMatchStartIndex = -1;
+        this._prevMatchLength = 0;
+    }
+    reset(lastIndex) {
+        this._searchRegex.lastIndex = lastIndex;
+        this._prevMatchStartIndex = -1;
+        this._prevMatchLength = 0;
+    }
+    next(text) {
+        const textLength = text.length;
+        let m;
+        do {
+            if (this._prevMatchStartIndex + this._prevMatchLength === textLength) {
+                // Reached the end of the line
+                return null;
+            }
+            m = this._searchRegex.exec(text);
+            if (!m) {
+                return null;
+            }
+            const matchStartIndex = m.index;
+            const matchLength = m[0].length;
+            if (matchStartIndex === this._prevMatchStartIndex && matchLength === this._prevMatchLength) {
+                if (matchLength === 0) {
+                    // the search result is an empty string and won't advance `regex.lastIndex`, so `regex.exec` will stuck here
+                    // we attempt to recover from that by advancing by two if surrogate pair found and by one otherwise
+                    if (getNextCodePoint(text, textLength, this._searchRegex.lastIndex) > 0xFFFF) {
+                        this._searchRegex.lastIndex += 2;
+                    }
+                    else {
+                        this._searchRegex.lastIndex += 1;
+                    }
+                    continue;
+                }
+                // Exit early if the regex matches the same range twice
+                return null;
+            }
+            this._prevMatchStartIndex = matchStartIndex;
+            this._prevMatchLength = matchLength;
+            if (!this._wordSeparators || isValidMatch(this._wordSeparators, text, textLength, matchStartIndex, matchLength)) {
+                return m;
+            }
+        } while (m);
+        return null;
+    }
+}
+
+;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/common/modes/unicodeTextModelHighlighter.js
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+
+
+
+class UnicodeTextModelHighlighter {
+    static computeUnicodeHighlights(model, options, range) {
+        const startLine = range ? range.startLineNumber : 1;
+        const endLine = range ? range.endLineNumber : model.getLineCount();
+        const codePointHighlighter = new CodePointHighlighter(options);
+        const candidates = codePointHighlighter.getCandidateCodePoints();
+        let regex;
+        if (candidates === 'allNonBasicAscii') {
+            regex = new RegExp('[^\\t\\n\\r\\x20-\\x7E]', 'g');
+        }
+        else {
+            regex = new RegExp(`${buildRegExpCharClassExpr(Array.from(candidates))}`, 'g');
+        }
+        const searcher = new Searcher(null, regex);
+        const ranges = [];
+        let hasMore = false;
+        let m;
+        let ambiguousCharacterCount = 0;
+        let invisibleCharacterCount = 0;
+        let nonBasicAsciiCharacterCount = 0;
+        forLoop: for (let lineNumber = startLine, lineCount = endLine; lineNumber <= lineCount; lineNumber++) {
+            const lineContent = model.getLineContent(lineNumber);
+            const lineLength = lineContent.length;
+            // Reset regex to search from the beginning
+            searcher.reset(0);
+            do {
+                m = searcher.next(lineContent);
+                if (m) {
+                    let startIndex = m.index;
+                    let endIndex = m.index + m[0].length;
+                    // Extend range to entire code point
+                    if (startIndex > 0) {
+                        const charCodeBefore = lineContent.charCodeAt(startIndex - 1);
+                        if (isHighSurrogate(charCodeBefore)) {
+                            startIndex--;
+                        }
+                    }
+                    if (endIndex + 1 < lineLength) {
+                        const charCodeBefore = lineContent.charCodeAt(endIndex - 1);
+                        if (isHighSurrogate(charCodeBefore)) {
+                            endIndex++;
+                        }
+                    }
+                    const str = lineContent.substring(startIndex, endIndex);
+                    const highlightReason = codePointHighlighter.shouldHighlightNonBasicASCII(str);
+                    if (highlightReason !== 0 /* None */) {
+                        if (highlightReason === 3 /* Ambiguous */) {
+                            ambiguousCharacterCount++;
+                        }
+                        else if (highlightReason === 2 /* Invisible */) {
+                            invisibleCharacterCount++;
+                        }
+                        else if (highlightReason === 1 /* NonBasicASCII */) {
+                            nonBasicAsciiCharacterCount++;
+                        }
+                        else {
+                            assertNever(highlightReason);
+                        }
+                        const MAX_RESULT_LENGTH = 1000;
+                        if (ranges.length >= MAX_RESULT_LENGTH) {
+                            hasMore = true;
+                            break forLoop;
+                        }
+                        ranges.push(new range_Range(lineNumber, startIndex + 1, lineNumber, endIndex + 1));
+                    }
+                }
+            } while (m);
+        }
+        return {
+            ranges,
+            hasMore,
+            ambiguousCharacterCount,
+            invisibleCharacterCount,
+            nonBasicAsciiCharacterCount
+        };
+    }
+    static computeUnicodeHighlightReason(char, options) {
+        const codePointHighlighter = new CodePointHighlighter(options);
+        const reason = codePointHighlighter.shouldHighlightNonBasicASCII(char);
+        switch (reason) {
+            case 0 /* None */:
+                return null;
+            case 2 /* Invisible */:
+                return { kind: 1 /* Invisible */ };
+            case 3 /* Ambiguous */:
+                const primaryConfusable = AmbiguousCharacters.getPrimaryConfusable(char.codePointAt(0));
+                return { kind: 0 /* Ambiguous */, confusableWith: String.fromCodePoint(primaryConfusable) };
+            case 1 /* NonBasicASCII */:
+                return { kind: 2 /* NonBasicAscii */ };
+        }
+    }
+}
+function buildRegExpCharClassExpr(codePoints, flags) {
+    const src = `[${escapeRegExpCharacters(codePoints.map((i) => String.fromCodePoint(i)).join(''))}]`;
+    return src;
+}
+class CodePointHighlighter {
+    constructor(options) {
+        this.options = options;
+        this.allowedCodePoints = new Set(options.allowedCodePoints);
+    }
+    getCandidateCodePoints() {
+        if (this.options.nonBasicASCII) {
+            return 'allNonBasicAscii';
+        }
+        const set = new Set();
+        if (this.options.invisibleCharacters) {
+            for (const cp of InvisibleCharacters.codePoints) {
+                set.add(cp);
+            }
+        }
+        if (this.options.ambiguousCharacters) {
+            for (const cp of AmbiguousCharacters.getPrimaryConfusableCodePoints()) {
+                set.add(cp);
+            }
+        }
+        for (const cp of this.allowedCodePoints) {
+            set.delete(cp);
+        }
+        return set;
+    }
+    shouldHighlightNonBasicASCII(character) {
+        const codePoint = character.codePointAt(0);
+        if (this.allowedCodePoints.has(codePoint)) {
+            return 0 /* None */;
+        }
+        if (this.options.nonBasicASCII) {
+            return 1 /* NonBasicASCII */;
+        }
+        if (this.options.invisibleCharacters) {
+            const isAllowedInvisibleCharacter = character === ' ' || character === '\n' || character === '\t';
+            // TODO check for emojis
+            if (!isAllowedInvisibleCharacter && InvisibleCharacters.isInvisibleCharacter(codePoint)) {
+                return 2 /* Invisible */;
+            }
+        }
+        if (this.options.ambiguousCharacters) {
+            if (AmbiguousCharacters.isAmbiguous(codePoint)) {
+                return 3 /* Ambiguous */;
+            }
+        }
+        return 0 /* None */;
+    }
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/common/services/editorSimpleWorker.js
@@ -8819,15 +10331,13 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 
 
 
+
 /**
  * @internal
  */
 class MirrorModel extends MirrorTextModel {
     get uri() {
         return this._uri;
-    }
-    get version() {
-        return this._versionId;
     }
     get eol() {
         return this._eol;
@@ -8847,7 +10357,7 @@ class MirrorModel extends MirrorTextModel {
     getWordAtPosition(position, wordDefinition) {
         let wordAtText = getWordAtText(position.column, ensureValidWordDefinition(wordDefinition), this._lines[position.lineNumber - 1], 0);
         if (wordAtText) {
-            return new Range(position.lineNumber, wordAtText.startColumn, position.lineNumber, wordAtText.endColumn);
+            return new range_Range(position.lineNumber, wordAtText.startColumn, position.lineNumber, wordAtText.endColumn);
         }
         return null;
     }
@@ -8926,7 +10436,7 @@ class MirrorModel extends MirrorTextModel {
     offsetAt(position) {
         position = this._validatePosition(position);
         this._ensureLineStarts();
-        return this._lineStarts.getAccumulatedValue(position.lineNumber - 2) + (position.column - 1);
+        return this._lineStarts.getPrefixSum(position.lineNumber - 2) + (position.column - 1);
     }
     positionAt(offset) {
         offset = Math.floor(offset);
@@ -8957,7 +10467,7 @@ class MirrorModel extends MirrorTextModel {
         return range;
     }
     _validatePosition(position) {
-        if (!Position.isIPosition(position)) {
+        if (!position_Position.isIPosition(position)) {
             throw new Error('bad position');
         }
         let { lineNumber, column } = position;
@@ -9028,6 +10538,15 @@ class EditorSimpleWorker {
         }
         delete this._models[strURL];
     }
+    computeUnicodeHighlights(url, options, range) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const model = this._getModel(url);
+            if (!model) {
+                return { ranges: [], hasMore: false, ambiguousCharacterCount: 0, invisibleCharacterCount: 0, nonBasicAsciiCharacterCount: 0 };
+            }
+            return UnicodeTextModelHighlighter.computeUnicodeHighlights(model, options, range);
+        });
+    }
     // ---- BEGIN diff --------------------------------------------------------------------------
     computeDiff(originalUrl, modifiedUrl, ignoreTrimWhitespace, maxComputationTime) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -9077,9 +10596,9 @@ class EditorSimpleWorker {
             }
             const result = [];
             let lastEol = undefined;
-            edits = mergeSort(edits, (a, b) => {
+            edits = edits.slice(0).sort((a, b) => {
                 if (a.range && b.range) {
-                    return Range.compareRangesUsingStarts(a.range, b.range);
+                    return range_Range.compareRangesUsingStarts(a.range, b.range);
                 }
                 // eol only changes should go to the end
                 let aRng = a.range ? 0 : 1;
@@ -9090,7 +10609,7 @@ class EditorSimpleWorker {
                 if (typeof eol === 'number') {
                     lastEol = eol;
                 }
-                if (Range.isEmpty(range) && !text) {
+                if (range_Range.isEmpty(range) && !text) {
                     // empty change
                     continue;
                 }
@@ -9107,7 +10626,7 @@ class EditorSimpleWorker {
                 }
                 // compute diff between original and edit.text
                 const changes = stringDiff(original, text, false);
-                const editOffset = model.offsetAt(Range.lift(range).getStartPosition());
+                const editOffset = model.offsetAt(range_Range.lift(range).getStartPosition());
                 for (const change of changes) {
                     const start = model.positionAt(editOffset + change.originalStart);
                     const end = model.positionAt(editOffset + change.originalStart + change.originalLength);
@@ -9136,33 +10655,27 @@ class EditorSimpleWorker {
             return computeLinks(model);
         });
     }
-    textualSuggest(modelUrl, position, wordDef, wordDefFlags) {
+    textualSuggest(modelUrls, leadingWord, wordDef, wordDefFlags) {
         return __awaiter(this, void 0, void 0, function* () {
-            const model = this._getModel(modelUrl);
-            if (!model) {
-                return null;
-            }
-            const words = [];
-            const seen = new Set();
+            const sw = new StopWatch(true);
             const wordDefRegExp = new RegExp(wordDef, wordDefFlags);
-            const wordAt = model.getWordAtPosition(position, wordDefRegExp);
-            if (wordAt) {
-                seen.add(model.getValueInRange(wordAt));
-            }
-            for (let word of model.words(wordDefRegExp)) {
-                if (seen.has(word)) {
+            const seen = new Set();
+            outer: for (let url of modelUrls) {
+                const model = this._getModel(url);
+                if (!model) {
                     continue;
                 }
-                seen.add(word);
-                if (!isNaN(Number(word))) {
-                    continue;
-                }
-                words.push(word);
-                if (seen.size > EditorSimpleWorker._suggestionsLimit) {
-                    break;
+                for (let word of model.words(wordDefRegExp)) {
+                    if (word === leadingWord || !isNaN(Number(word))) {
+                        continue;
+                    }
+                    seen.add(word);
+                    if (seen.size > EditorSimpleWorker._suggestionsLimit) {
+                        break outer;
+                    }
                 }
             }
-            return words;
+            return { words: Array.from(seen), duration: sw.elapsed() };
         });
     }
     // ---- END suggest --------------------------------------------------------------------------
@@ -9281,7 +10794,7 @@ function editorSimpleWorker_create(host) {
 }
 if (typeof importScripts === 'function') {
     // Running in a web worker
-    globals.monaco = createMonacoBaseAPI();
+    platform_globals.monaco = createMonacoBaseAPI();
 }
 
 ;// CONCATENATED MODULE: ./node_modules/monaco-editor/esm/vs/editor/editor.worker.js

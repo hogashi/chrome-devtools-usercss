@@ -2,59 +2,6 @@
 /******/ 	"use strict";
 /******/ 	var __webpack_modules__ = ({
 
-/***/ 4428:
-/***/ ((__unused_webpack_module, exports, __webpack_require__) => {
-
-var __webpack_unused_export__;
-
-
-__webpack_unused_export__ = ({
-  value: true
-});
-
-var utils_1 = __webpack_require__(6844);
-/**
- * sendResponseを非同期で呼んでもconnectionを保ってもらうことをtrueを返すことで示す
- * ref: https://developer.chrome.com/docs/extensions/reference/runtime/#event-onMessage
- * >This function becomes invalid when the event listener returns, unless
- * >you return true from the event listener to indicate you wish to send a
- * >response asynchronously (this will keep the message channel open to the
- * >other end until sendResponse is called).
- */
-
-
-var getStyle = function getStyle(message, _, sendResponse) {
-  var hostname = message.hostname;
-
-  if (hostname.length === 0) {
-    sendResponse({
-      style: ''
-    });
-    return true;
-  } // ドメインを消しても(hostnameSetから消すだけで)storageからは消さないので
-  // hostnameSetにあるときだけ返す
-
-
-  utils_1.getHostnameSet().then(function (hostnameSet) {
-    if (!hostnameSet[hostname]) {
-      sendResponse({
-        style: ''
-      });
-    }
-
-    utils_1.getStorageItem(hostname).then(function (style) {
-      return sendResponse({
-        style: style
-      });
-    });
-  });
-  return true;
-};
-
-chrome.runtime.onMessage.addListener(getStyle);
-
-/***/ }),
-
 /***/ 4799:
 /***/ ((__unused_webpack_module, exports) => {
 
@@ -83,8 +30,8 @@ var constants_1 = __webpack_require__(4799);
 
 var datetimeStr = function datetimeStr() {
   var date = new Date();
-  return "" + date.getFullYear() + [date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds()].map(function (n) {
-    return ("0" + n).slice(-2);
+  return "".concat(date.getFullYear()) + [date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds()].map(function (n) {
+    return "0".concat(n).slice(-2);
   }).join('');
 }; // chrome.storage
 
@@ -128,7 +75,7 @@ var getStorageItem = function getStorageItem(key, defaultValue) {
 exports.getStorageItem = getStorageItem;
 
 var getHostnameSet = function getHostnameSet() {
-  return exports.getStorageItem(constants_1.HOSTNAME_SET, '{}').then(function (str) {
+  return (0, exports.getStorageItem)(constants_1.HOSTNAME_SET, '{}').then(function (str) {
     return JSON.parse(str);
   })["catch"](function () {
     return {};
@@ -138,14 +85,14 @@ var getHostnameSet = function getHostnameSet() {
 exports.getHostnameSet = getHostnameSet;
 
 var downloadDataAsJson = function downloadDataAsJson() {
-  exports.getHostnameSet().then(function (hostnameSet) {
+  (0, exports.getHostnameSet)().then(function (hostnameSet) {
     var styleSet = {};
     Promise.all(Object.keys(hostnameSet).map(function (hostname) {
-      return exports.getStorageItem(hostname).then(function (css) {
+      return (0, exports.getStorageItem)(hostname).then(function (css) {
         styleSet[hostname] = css;
       });
     })).then(function () {
-      return exports.getStorageItem(constants_1.LAST_SELECTED_HOST_NAME).then(function (lastSelectedHostname) {
+      return (0, exports.getStorageItem)(constants_1.LAST_SELECTED_HOST_NAME).then(function (lastSelectedHostname) {
         return {
           hostnameSet: hostnameSet,
           lastSelectedHostname: lastSelectedHostname
@@ -164,7 +111,7 @@ var downloadDataAsJson = function downloadDataAsJson() {
       });
       var aTag = document.createElement('a');
       aTag.href = URL.createObjectURL(blob);
-      aTag.download = "chrome-usercss-hogashi-" + datetimeStr() + ".json";
+      aTag.download = "chrome-usercss-hogashi-".concat(datetimeStr(), ".json");
       aTag.click();
     });
   });
@@ -191,7 +138,7 @@ var importDataToStorage = function importDataToStorage(str) {
     dataToSet[hostname] = styleSet[hostname];
   });
   return new Promise(function (resolve) {
-    return exports.setStorageItem(dataToSet, function () {
+    return (0, exports.setStorageItem)(dataToSet, function () {
       resolve(true);
     });
   });
@@ -209,8 +156,9 @@ exports.importDataToStorage = importDataToStorage;
 /******/ 	// The require function
 /******/ 	function __webpack_require__(moduleId) {
 /******/ 		// Check if module is in cache
-/******/ 		if(__webpack_module_cache__[moduleId]) {
-/******/ 			return __webpack_module_cache__[moduleId].exports;
+/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 		if (cachedModule !== undefined) {
+/******/ 			return cachedModule.exports;
 /******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
@@ -227,9 +175,58 @@ exports.importDataToStorage = importDataToStorage;
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	// startup
-/******/ 	// Load entry module
-/******/ 	__webpack_require__(4428);
-/******/ 	// This entry module used 'exports' so it can't be inlined
+var __webpack_exports__ = {};
+// This entry need to be wrapped in an IIFE because it need to be isolated against other modules in the chunk.
+(() => {
+var exports = __webpack_exports__;
+var __webpack_unused_export__;
+
+
+__webpack_unused_export__ = ({
+  value: true
+});
+
+var utils_1 = __webpack_require__(6844);
+/**
+ * sendResponseを非同期で呼んでもconnectionを保ってもらうことをtrueを返すことで示す
+ * ref: https://developer.chrome.com/docs/extensions/reference/runtime/#event-onMessage
+ * >This function becomes invalid when the event listener returns, unless
+ * >you return true from the event listener to indicate you wish to send a
+ * >response asynchronously (this will keep the message channel open to the
+ * >other end until sendResponse is called).
+ */
+
+
+var getStyle = function getStyle(message, _, sendResponse) {
+  var hostname = message.hostname;
+
+  if (hostname.length === 0) {
+    sendResponse({
+      style: ''
+    });
+    return true;
+  } // ドメインを消しても(hostnameSetから消すだけで)storageからは消さないので
+  // hostnameSetにあるときだけ返す
+
+
+  (0, utils_1.getHostnameSet)().then(function (hostnameSet) {
+    if (!hostnameSet[hostname]) {
+      sendResponse({
+        style: ''
+      });
+    }
+
+    (0, utils_1.getStorageItem)(hostname).then(function (style) {
+      return sendResponse({
+        style: style
+      });
+    });
+  });
+  return true;
+};
+
+chrome.runtime.onMessage.addListener(getStyle);
+})();
+
 /******/ })()
 ;
