@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "chrome-usercss-hogashi",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "usercss for each site",
   "author": "hogashi",
   "icons": {
