@@ -2,7 +2,6 @@ import {
   HostnameSet,
   HOSTNAME_SET,
   LAST_SELECTED_HOST_NAME,
-  IS_ALREADY_MIGRATED_TO_STORAGE,
 } from './constants';
 
 type Data = {
@@ -25,89 +24,6 @@ const datetimeStr = (): string => {
       .map(n => `0${n}`.slice(-2))
       .join('')
   );
-};
-
-// _FORMIGRATEシリーズは移行用のメソッド
-// TODO: みなさまがlocalStorageから脱出できてそうなくらい経ったら消す
-
-export const getLocalStorageItem_FORMIGRATE = (
-  key: string,
-  defaultValue = ''
-): string => {
-  return localStorage.getItem(key) || defaultValue;
-};
-
-export const getHostnameSetFromLocalStorage_FORMIGRATE = (): HostnameSet => {
-  try {
-    return JSON.parse(getLocalStorageItem_FORMIGRATE(HOSTNAME_SET, '{}'));
-  } catch {
-    return {};
-  }
-};
-
-export const getIsAlreadyMigratedToStorage_FORMIGRATE = (): Promise<boolean> =>
-  getStorageItem(IS_ALREADY_MIGRATED_TO_STORAGE).then(value => {
-    if (value === '') {
-      return false;
-    }
-    return JSON.parse(value);
-  });
-
-export const migrateToStorage_FORMIGRATE = (): void => {
-  getIsAlreadyMigratedToStorage_FORMIGRATE().then(isAlreadyMigrated => {
-    // 移行済みならなにもしない
-    if (isAlreadyMigrated) {
-      return;
-    }
-
-    const hostnameSet = getHostnameSetFromLocalStorage_FORMIGRATE();
-    const dataToMigrate: {
-      [key: string]: string;
-    } = {
-      hostnameSet: JSON.stringify(hostnameSet),
-      lastSelectedHostname: getLocalStorageItem_FORMIGRATE(
-        LAST_SELECTED_HOST_NAME
-      ),
-    };
-    Object.keys(hostnameSet).forEach(hostname => {
-      dataToMigrate[hostname] = getLocalStorageItem_FORMIGRATE(hostname);
-    });
-    setStorageItem(dataToMigrate).then(() => {
-      setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE();
-    });
-  });
-};
-
-export const setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE = (): Promise<true> =>
-  setStorageItem({
-    [IS_ALREADY_MIGRATED_TO_STORAGE]: JSON.stringify(true),
-  });
-
-// 何らかがおかしくて自動でmigrateToStorage_FORMIGRATEできなかった場合に,
-// 人間の手で"localStorageからエクスポート→chrome.storageにインポート"をしたいことがある
-// その"localStorageからのエクスポート"をするメソッド
-export const downloadDataAsJsonFromLocalStorage_FORMIGRATE = (): void => {
-  const hostnameSet = getHostnameSetFromLocalStorage_FORMIGRATE();
-  const lastSelectedHostname = getLocalStorageItem_FORMIGRATE(
-    LAST_SELECTED_HOST_NAME
-  );
-
-  const styleSet: { [hostname: string]: string } = {};
-  Object.keys(hostnameSet).forEach(hostname => {
-    styleSet[hostname] = getLocalStorageItem_FORMIGRATE(hostname);
-  });
-
-  const data: Data = {
-    hostnameSet,
-    lastSelectedHostname,
-    styleSet,
-  };
-
-  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
-  const aTag = document.createElement('a');
-  aTag.href = window.URL.createObjectURL(blob);
-  aTag.download = `chrome-usercss-hogashi-v020-${datetimeStr()}.json`;
-  aTag.click();
 };
 
 // chrome.storage
@@ -201,10 +117,7 @@ export const importDataToStorage = (str: string): Promise<boolean> => {
   });
   return new Promise(resolve =>
     setStorageItem(dataToSet, () => {
-      // 手でインポートしたときは移行済みの扱いとする
-      setIsAlreadyMigratedToStorageAsTrue_FORMIGRATE().then(() =>
-        resolve(true)
-      );
+      resolve(true);
     })
   );
 };
