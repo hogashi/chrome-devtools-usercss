@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "chrome-usercss-hogashi",
-  "version": "0.4.1",
-  "description": "usercss for each site",
+  "name": "chrome-devtools-usercss",
+  "version": "0.1",
+  "description": "usercss for Chrome DevTools",
   "author": "hogashi",
   "icons": {
     "16": "icons/icon16.png",
@@ -10,17 +10,12 @@
     "128": "icons/icon128.png"
   },
   "permissions": ["storage"],
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["index.js"]
-    }
-  ],
+  "devtools_page": "devtools.html",
   "background": {
     "service_worker": "background.js"
   },
   "action": {
-    "default_title": "chrome-usercss-hogashi",
+    "default_title": "chrome-devtools-usercss",
     "default_popup": "popup.html"
   },
   "options_page": "popup.html"
