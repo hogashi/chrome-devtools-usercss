@@ -198,28 +198,9 @@ var utils_1 = __webpack_require__(6844);
 
 
 var getStyle = function getStyle(message, _, sendResponse) {
-  var hostname = message.hostname;
-
-  if (hostname.length === 0) {
-    sendResponse({
-      style: ''
-    });
-    return true;
-  } // ドメインを消しても(hostnameSetから消すだけで)storageからは消さないので
-  // hostnameSetにあるときだけ返す
-
-
-  (0, utils_1.getHostnameSet)().then(function (hostnameSet) {
-    if (!hostnameSet[hostname]) {
-      sendResponse({
-        style: ''
-      });
-    }
-
-    (0, utils_1.getStorageItem)(hostname).then(function (style) {
-      return sendResponse({
-        style: style
-      });
+  (0, utils_1.getStorageItem)('style').then(function (style) {
+    return sendResponse({
+      style: style
     });
   });
   return true;
