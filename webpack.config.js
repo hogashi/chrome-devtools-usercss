@@ -2,7 +2,7 @@ const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
   entry: {
-    index: './src/index.ts',
+    devtools: './src/devtools.ts',
     background: './src/background.ts',
     popup: './src/popup.tsx',
   },
