@@ -1,8 +1,4 @@
-import { getHostnameSet, getStorageItem } from './lib/utils';
-
-export interface GetStyleMessage {
-  hostname: string;
-}
+import { getStorageItem } from './lib/utils';
 
 export type SendGetStyleResponse = (response: { style: string }) => void;
 
@@ -15,25 +11,11 @@ export type SendGetStyleResponse = (response: { style: string }) => void;
  * >other end until sendResponse is called).
  */
 const getStyle = (
-  message: GetStyleMessage,
+  message: '',
   _: unknown,
   sendResponse: SendGetStyleResponse
 ): true => {
-  const hostname = message.hostname;
-  if (hostname.length === 0) {
-    sendResponse({ style: '' });
-    return true;
-  }
-
-  // ドメインを消しても(hostnameSetから消すだけで)storageからは消さないので
-  // hostnameSetにあるときだけ返す
-  getHostnameSet().then(hostnameSet => {
-    if (!hostnameSet[hostname]) {
-      sendResponse({ style: '' });
-    }
-    getStorageItem(hostname).then(style => sendResponse({ style }));
-  });
-
+  getStorageItem('style').then(style => sendResponse({ style }));
   return true;
 };
 
